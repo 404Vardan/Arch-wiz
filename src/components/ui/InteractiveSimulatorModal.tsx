@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Play, Pause, SkipForward, RotateCcw, Cpu, Terminal, Layers, ArrowRight, Code, Database } from 'lucide-react';
+import { X, Play, Pause, SkipForward, RotateCcw, Cpu, Terminal, Layers, ArrowRight, Code, Database, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { audio } from '../../utils/audio';
 
 interface InteractiveSimulatorModalProps {
@@ -288,6 +288,117 @@ const PROGRAM_PRESETS: Record<string, AssemblyProgram> = {
   }
 };
 
+// Parser for custom freeform assembly
+function parseCustomAssembly(source: string): { instructions: ProgramInstruction[]; error?: string } {
+  const lines = source.split('\n').map((l) => l.trim()).filter((l) => l.length > 0 && !l.startsWith('#'));
+  const instructions: ProgramInstruction[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
+    const cleanLine = rawLine.split('#')[0].trim();
+    if (!cleanLine) continue;
+
+    // Tokens: OP arg1, arg2, arg3
+    const parts = cleanLine.split(/[\s,]+/);
+    const op = parts[0].toUpperCase();
+
+    const parseReg = (name: string): number | null => {
+      const match = name.match(/^R(\d+)$/i);
+      if (!match) return null;
+      const num = parseInt(match[1], 10);
+      return num >= 0 && num <= 15 ? num : null;
+    };
+
+    const parseImm = (val: string): number => {
+      if (val.startsWith('0x') || val.startsWith('0X')) return parseInt(val, 16);
+      return parseInt(val, 10);
+    };
+
+    if (op === 'ADD' || op === 'SUB' || op === 'AND' || op === 'OR' || op === 'SLT') {
+      const rd = parseReg(parts[1]);
+      const rs1 = parseReg(parts[2]);
+      const rs2 = parseReg(parts[3]);
+      if (rd === null || rs1 === null || rs2 === null) {
+        return { instructions: [], error: `Line ${i + 1}: Invalid register syntax for ${op}. Use format: ${op} Rd, Rs1, Rs2 (e.g. ${op} R3, R1, R2)` };
+      }
+      instructions.push({
+        pc: instructions.length,
+        asm: `${op} R${rd}, R${rs1}, R${rs2}`,
+        comment: `${op} operation → R${rd}`,
+        execute: (r, m) => {
+          const nextR = [...r];
+          let val = 0;
+          if (op === 'ADD') val = r[rs1] + r[rs2];
+          if (op === 'SUB') val = r[rs1] - r[rs2];
+          if (op === 'AND') val = r[rs1] & r[rs2];
+          if (op === 'OR') val = r[rs1] | r[rs2];
+          if (op === 'SLT') val = r[rs1] < r[rs2] ? 1 : 0;
+          if (rd !== 0) nextR[rd] = val; // R0 is hardwired to 0
+          return { regs: nextR, mem: m, nextPc: i + 1, modifiedReg: rd !== 0 ? rd : undefined };
+        }
+      });
+    } else if (op === 'ADDI' || op === 'SUBI') {
+      const rd = parseReg(parts[1]);
+      const rs1 = parseReg(parts[2]);
+      const imm = parseImm(parts[3]);
+      if (rd === null || rs1 === null || isNaN(imm)) {
+        return { instructions: [], error: `Line ${i + 1}: Invalid immediate syntax for ${op}. Use format: ${op} Rd, Rs1, Imm (e.g. ${op} R1, R0, 10)` };
+      }
+      instructions.push({
+        pc: instructions.length,
+        asm: `${op} R${rd}, R${rs1}, ${parts[3]}`,
+        comment: `${op} immediate value ${imm} → R${rd}`,
+        execute: (r, m) => {
+          const nextR = [...r];
+          let val = op === 'ADDI' ? r[rs1] + imm : r[rs1] - imm;
+          if (rd !== 0) nextR[rd] = val;
+          return { regs: nextR, mem: m, nextPc: i + 1, modifiedReg: rd !== 0 ? rd : undefined };
+        }
+      });
+    } else if (op === 'LOAD') {
+      const rd = parseReg(parts[1]);
+      const addrStr = parts[2];
+      if (rd === null || !addrStr) {
+        return { instructions: [], error: `Line ${i + 1}: Invalid syntax for LOAD. Format: LOAD Rd, 0x1000` };
+      }
+      instructions.push({
+        pc: instructions.length,
+        asm: `LOAD R${rd}, ${addrStr}`,
+        comment: `Read Mem[${addrStr}] → R${rd}`,
+        execute: (r, m) => {
+          const nextR = [...r];
+          const val = m[addrStr] !== undefined ? m[addrStr] : 50;
+          if (rd !== 0) nextR[rd] = val;
+          return { regs: nextR, mem: m, nextPc: i + 1, modifiedReg: rd !== 0 ? rd : undefined };
+        }
+      });
+    } else if (op === 'STORE') {
+      const rs = parseReg(parts[1]);
+      const addrStr = parts[2];
+      if (rs === null || !addrStr) {
+        return { instructions: [], error: `Line ${i + 1}: Invalid syntax for STORE. Format: STORE Rs, 0x1000` };
+      }
+      instructions.push({
+        pc: instructions.length,
+        asm: `STORE R${rs}, ${addrStr}`,
+        comment: `Write R${rs} → Mem[${addrStr}]`,
+        execute: (r, m) => {
+          const nextM = { ...m, [addrStr]: r[rs] };
+          return { regs: r, mem: nextM, nextPc: i + 1 };
+        }
+      });
+    } else {
+      return { instructions: [], error: `Line ${i + 1}: Unsupported opcode '${op}'. Supported: ADD, SUB, ADDI, SUBI, AND, OR, SLT, LOAD, STORE` };
+    }
+  }
+
+  if (instructions.length === 0) {
+    return { instructions: [], error: 'No valid assembly instructions found.' };
+  }
+
+  return { instructions };
+}
+
 export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps> = ({
   isOpen,
   onClose
@@ -310,6 +421,13 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
   const [lastModifiedReg, setLastModifiedReg] = useState<number | null>(null);
   const [isProgramRunning, setIsProgramRunning] = useState<boolean>(false);
 
+  // Custom Assembly State
+  const [customSource, setCustomSource] = useState<string>(
+    'ADDI R1, R0, 20\nADDI R2, R0, 22\nADD  R3, R1, R2\nSUB  R4, R3, R1\nSTORE R3, 0x1008'
+  );
+  const [customInstructions, setCustomInstructions] = useState<ProgramInstruction[]>([]);
+  const [customError, setCustomError] = useState<string | null>(null);
+
   // Reset single instruction state on selection
   useEffect(() => {
     const def = INSTRUCTION_CATALOG[selectedInst];
@@ -321,9 +439,23 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
 
   // Reset program runner when switching programs
   useEffect(() => {
-    const prog = PROGRAM_PRESETS[activeProgramId];
-    setRegisters([...prog.initialRegs]);
-    setMemory({ ...prog.initialMem });
+    if (activeProgramId === 'CUSTOM') {
+      const parsed = parseCustomAssembly(customSource);
+      if (parsed.error) {
+        setCustomError(parsed.error);
+        setCustomInstructions([]);
+      } else {
+        setCustomError(null);
+        setCustomInstructions(parsed.instructions);
+      }
+      setRegisters([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+      setMemory({ '0x1000': 0, '0x1004': 0, '0x1008': 0, '0x100C': 0 });
+    } else {
+      const prog = PROGRAM_PRESETS[activeProgramId];
+      setRegisters([...prog.initialRegs]);
+      setMemory({ ...prog.initialMem });
+      setCustomError(null);
+    }
     setProgramPc(0);
     setCycleCount(0);
     setLastModifiedReg(null);
@@ -348,19 +480,23 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
     return () => clearInterval(timer);
   }, [isAutoPlaying]);
 
+  // Current instructions list based on preset or custom
+  const currentInstructions = activeProgramId === 'CUSTOM'
+    ? customInstructions
+    : PROGRAM_PRESETS[activeProgramId]?.instructions || [];
+
   // Autoplay loop for Multi-Instruction Program
   useEffect(() => {
     if (!isProgramRunning) return;
-    const prog = PROGRAM_PRESETS[activeProgramId];
 
     const timer = setInterval(() => {
       setProgramPc((currentPc) => {
-        if (currentPc >= prog.instructions.length) {
+        if (currentPc >= currentInstructions.length) {
           setIsProgramRunning(false);
           audio.playAluChime();
           return currentPc;
         }
-        const inst = prog.instructions[currentPc];
+        const inst = currentInstructions[currentPc];
         audio.playStep();
         setCycleCount((c) => c + 1);
 
@@ -382,7 +518,7 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isProgramRunning, activeProgramId, registers, memory]);
+  }, [isProgramRunning, activeProgramId, currentInstructions, registers, memory]);
 
   if (!isOpen) return null;
 
@@ -476,10 +612,9 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
 
   // Program Runner Step handler
   const handleProgramStep = () => {
-    const prog = PROGRAM_PRESETS[activeProgramId];
-    if (programPc >= prog.instructions.length) return;
+    if (programPc >= currentInstructions.length) return;
     audio.playStep();
-    const inst = prog.instructions[programPc];
+    const inst = currentInstructions[programPc];
     setCycleCount((prev) => prev + 1);
 
     const res = inst.execute(registers, memory);
@@ -489,20 +624,42 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
       setLastModifiedReg(res.modifiedReg);
     }
     setProgramPc(res.nextPc);
-    if (res.nextPc >= prog.instructions.length) {
+    if (res.nextPc >= currentInstructions.length) {
       audio.playAluChime();
     }
   };
 
   const handleProgramReset = () => {
     audio.playClick();
-    const prog = PROGRAM_PRESETS[activeProgramId];
     setIsProgramRunning(false);
-    setRegisters([...prog.initialRegs]);
-    setMemory({ ...prog.initialMem });
+    if (activeProgramId === 'CUSTOM') {
+      setRegisters([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+      setMemory({ '0x1000': 0, '0x1004': 0, '0x1008': 0, '0x100C': 0 });
+    } else {
+      const prog = PROGRAM_PRESETS[activeProgramId];
+      setRegisters([...prog.initialRegs]);
+      setMemory({ ...prog.initialMem });
+    }
     setProgramPc(0);
     setCycleCount(0);
     setLastModifiedReg(null);
+  };
+
+  const handleAssembleCustom = () => {
+    audio.playClick();
+    const parsed = parseCustomAssembly(customSource);
+    if (parsed.error) {
+      setCustomError(parsed.error);
+      setCustomInstructions([]);
+      audio.playCacheMiss();
+    } else {
+      setCustomError(null);
+      setCustomInstructions(parsed.instructions);
+      setProgramPc(0);
+      setCycleCount(0);
+      setLastModifiedReg(null);
+      audio.playAluChime();
+    }
   };
 
   return (
@@ -582,7 +739,7 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
                   letterSpacing: '0.08em'
                 }}
               >
-                RISC-V / MIPS PROCESSOR SIMULATION & FULL REGISTER FILE SUITE
+                RISC-V / MIPS PROCESSOR SIMULATION, CUSTOM COMPILER & 16-REGISTER BANK
               </div>
             </div>
           </div>
@@ -665,7 +822,7 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
             }}
           >
             <Code size={14} />
-            <span>MODE 2: MULTI-INSTRUCTION PROGRAM RUNNER & 16-REGISTER BANK</span>
+            <span>MODE 2: MULTI-INSTRUCTION PROGRAM RUNNER & CUSTOM COMPILER</span>
           </button>
         </div>
 
@@ -1106,9 +1263,9 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
             </div>
           </div>
         ) : (
-          /* Mode 2: Multi-Instruction Program Runner & 16-Register Bank */
+          /* Mode 2: Multi-Instruction Program Runner & Custom Assembly Compiler */
           <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* Top Toolbar: Program Selector & Playback Controls */}
+            {/* Top Toolbar: Program Selector & Controls */}
             <div
               style={{
                 display: 'flex',
@@ -1122,7 +1279,6 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
                 border: '1px solid rgba(255, 255, 255, 0.06)'
               }}
             >
-              {/* Program Selector */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#ff6a00' }}>
                   ROUTINE:
@@ -1148,10 +1304,11 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
                       {p.name}
                     </option>
                   ))}
+                  <option value="CUSTOM">★ Custom Code (Live Assembly Compiler)</option>
                 </select>
               </div>
 
-              {/* Execution Controls */}
+              {/* Controls */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <button
                   onClick={() => {
@@ -1184,7 +1341,6 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
                   <RotateCcw size={12} />
                 </button>
 
-                {/* PC and Cycle telemetry */}
                 <div
                   style={{
                     display: 'flex',
@@ -1204,6 +1360,87 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
                 </div>
               </div>
             </div>
+
+            {/* Custom Assembly Editor Box (shown if CUSTOM is selected) */}
+            {activeProgramId === 'CUSTOM' && (
+              <div
+                style={{
+                  background: 'rgba(0, 0, 0, 0.45)',
+                  border: '1px solid rgba(255, 106, 0, 0.3)',
+                  borderRadius: '4px',
+                  padding: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#ff6a00' }}>
+                    CUSTOM ASSEMBLY CODE EDITOR (INPUT YOUR INSTRUCTIONS)
+                  </div>
+                  <button
+                    onClick={handleAssembleCustom}
+                    className="btn-primary"
+                    style={{ padding: '6px 14px', fontSize: '11px' }}
+                  >
+                    <span>ASSEMBLE & LOAD ROUTINE</span>
+                  </button>
+                </div>
+
+                <textarea
+                  value={customSource}
+                  onChange={(e) => setCustomSource(e.target.value)}
+                  rows={5}
+                  placeholder="Enter assembly instructions..."
+                  style={{
+                    width: '100%',
+                    background: '#090a0d',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    borderRadius: '3px',
+                    color: '#f2f4f7',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: '12px',
+                    lineHeight: '1.6',
+                    padding: '10px 12px',
+                    resize: 'vertical'
+                  }}
+                />
+
+                {customError ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      color: '#f87171',
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: '11px',
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      padding: '8px 12px',
+                      borderRadius: '2px',
+                      border: '1px solid rgba(239, 68, 68, 0.25)'
+                    }}
+                  >
+                    <AlertCircle size={14} />
+                    <span>{customError}</span>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      color: '#4ade80',
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: '11px'
+                    }}
+                  >
+                    <CheckCircle2 size={13} />
+                    <span>{customInstructions.length} instructions assembled successfully. Ready to execute!</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Main Program View: Left Code Editor / Right Register & Memory Banks */}
             <div
@@ -1240,7 +1477,7 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
                   <span>OPERATION & COMMENT</span>
                 </div>
 
-                {PROGRAM_PRESETS[activeProgramId].instructions.map((inst, idx) => {
+                {currentInstructions.map((inst, idx) => {
                   const isCurrent = programPc === idx;
                   const isPast = programPc > idx;
 
@@ -1298,7 +1535,7 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
                 })}
 
                 {/* Routine completed banner */}
-                {programPc >= PROGRAM_PRESETS[activeProgramId].instructions.length && (
+                {programPc >= currentInstructions.length && currentInstructions.length > 0 && (
                   <div
                     style={{
                       marginTop: '12px',
