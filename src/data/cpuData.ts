@@ -179,13 +179,13 @@ export const EXECUTION_STAGES: StageInfo[] = [
     title: 'INSTRUCTION DECODE',
     description: 'The Control Unit inspects opcode bits from IR, identifying an arithmetic ADD operation, and asserts datapath control lines.',
     activeComponents: ['IR', 'CU'],
-    dataFlowDescription: 'IR[31:26] → Control Unit Decoder Logic → Asserts ALUOp=ADD, RegWrite=1',
+    dataFlowDescription: 'IR[6:0] (Opcode 0x33) & IR[14:12] (funct3 0x0) → Control Unit Decoder → Asserts ALUOp=ADD, RegWrite=1',
     busPath: [['IR', 'CU']],
     microOps: [
-      'Decode Opcode: 0x00 (R-Type)',
-      'Decode Function: 0x20 (ADD)',
-      'Generate Control Signals (ALUOp, RegDst)',
-      'Identify Source Registers R1, R2 and Destination R3'
+      'Decode Opcode: 0x33 (0110011, RV32I R-Type OP)',
+      'Decode funct3: 0x0 (ADD) & funct7: 0x00',
+      'Generate Control Signals (ALUOp=ADD, RegWrite=1)',
+      'Identify Source Registers rs1=R1, rs2=R2 and Destination rd=R3'
     ],
     cpuState: {
       pc: '0x0044',

@@ -39,6 +39,15 @@ export const BenchmarkModal: React.FC<BenchmarkModalProps> = ({ isOpen, onClose 
   // Normalization for visual bars (max bar = 100%)
   const maxTime = Math.max(singleCycleTotalMs, multiCycleTotalMs, pipelinedTotalMs);
 
+  // Amdahl's Law Interactive Model: Speedup = 1 / ((1 - f) + (f / s))
+  const [amdahlFraction, setAmdahlFraction] = useState<number>(70); // 70% of execution enhanced
+  const [amdahlSpeedupFactor, setAmdahlSpeedupFactor] = useState<number>(4); // 4x speedup on enhanced portion
+
+  const f = amdahlFraction / 100;
+  const s = amdahlSpeedupFactor;
+  const amdahlOverallSpeedup = Number((1 / ((1 - f) + (f / s))).toFixed(2));
+  const amdahlTheoreticalMax = Number((1 / (1 - f)).toFixed(2));
+
   return (
     <div
       style={{
@@ -59,8 +68,8 @@ export const BenchmarkModal: React.FC<BenchmarkModalProps> = ({ isOpen, onClose 
       <div
         style={{
           width: '100%',
-          maxWidth: '960px',
-          maxHeight: '90vh',
+          maxWidth: '980px',
+          maxHeight: '92vh',
           background: 'var(--bg-secondary)',
           border: '1px solid rgba(255, 106, 0, 0.35)',
           boxShadow: '0 24px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(255, 106, 0, 0.18)',
@@ -106,7 +115,7 @@ export const BenchmarkModal: React.FC<BenchmarkModalProps> = ({ isOpen, onClose 
                   letterSpacing: '0.04em'
                 }}
               >
-                COA ARCHITECTURE BENCHMARK & PERFORMANCE MODEL
+                CPU PERFORMANCE BENCHMARK & AMDAHL'S LAW CALCULATOR
               </div>
               <div
                 style={{
@@ -116,7 +125,7 @@ export const BenchmarkModal: React.FC<BenchmarkModalProps> = ({ isOpen, onClose 
                   letterSpacing: '0.08em'
                 }}
               >
-                QUANTITATIVE CPU TIME: T = INSTRUCTION COUNT × CPI × CLOCK CYCLE TIME
+                IRON LAW (T = I × CPI × t_clk) & AMDAHL'S LAW SPEEDUP MODEL
               </div>
             </div>
           </div>
@@ -142,235 +151,298 @@ export const BenchmarkModal: React.FC<BenchmarkModalProps> = ({ isOpen, onClose 
 
         {/* Modal Body */}
         <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '22px' }}>
-          {/* Tuning Sliders */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-              gap: '16px',
-              background: 'rgba(0, 0, 0, 0.3)',
-              padding: '18px',
-              borderRadius: '4px',
-              border: '1px solid rgba(255, 255, 255, 0.08)'
-            }}
-          >
-            {/* Instruction Count */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#8b949e' }}>
-                  INSTRUCTION COUNT (I)
-                </span>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#ff6a00', fontWeight: 600 }}>
-                  {instructionCount.toLocaleString()}
-                </span>
-              </div>
-              <input
-                type="range"
-                min="10000"
-                max="500000"
-                step="10000"
-                value={instructionCount}
-                onChange={(e) => {
-                  setInstructionCount(Number(e.target.value));
-                }}
-                style={{ width: '100%', accentColor: '#ff6a00' }}
-              />
+          {/* Section 1: The Iron Law */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#ff6a00', fontWeight: 600 }}>
+              SECTION 1: THE IRON LAW OF PROCESSOR PERFORMANCE (T = I × CPI × t_clk)
             </div>
 
-            {/* Cache Miss Rate */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#8b949e' }}>
-                  CACHE MISS RATE (%)
-                </span>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#38bdf8', fontWeight: 600 }}>
-                  {cacheMissRate}%
-                </span>
+            {/* Tuning Sliders */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                gap: '16px',
+                background: 'rgba(0, 0, 0, 0.3)',
+                padding: '16px',
+                borderRadius: '4px',
+                border: '1px solid rgba(255, 255, 255, 0.08)'
+              }}
+            >
+              {/* Instruction Count */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#8b949e' }}>
+                    INSTRUCTION COUNT (I)
+                  </span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#ff6a00', fontWeight: 600 }}>
+                    {instructionCount.toLocaleString()}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="10000"
+                  max="500000"
+                  step="10000"
+                  value={instructionCount}
+                  onChange={(e) => setInstructionCount(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: '#ff6a00' }}
+                />
               </div>
-              <input
-                type="range"
-                min="0"
-                max="25"
-                step="1"
-                value={cacheMissRate}
-                onChange={(e) => {
-                  setCacheMissRate(Number(e.target.value));
-                }}
-                style={{ width: '100%', accentColor: '#38bdf8' }}
-              />
+
+              {/* Cache Miss Rate */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#8b949e' }}>
+                    CACHE MISS RATE (%)
+                  </span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#38bdf8', fontWeight: 600 }}>
+                    {cacheMissRate}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="25"
+                  step="1"
+                  value={cacheMissRate}
+                  onChange={(e) => setCacheMissRate(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: '#38bdf8' }}
+                />
+              </div>
+
+              {/* Branch Misprediction Rate */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#8b949e' }}>
+                    BRANCH MISPREDICT RATE (%)
+                  </span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#e5a93c', fontWeight: 600 }}>
+                    {branchHazardRate}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="30"
+                  step="2"
+                  value={branchHazardRate}
+                  onChange={(e) => setBranchHazardRate(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: '#e5a93c' }}
+                />
+              </div>
             </div>
 
-            {/* Branch Misprediction Rate */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#8b949e' }}>
-                  BRANCH MISPREDICT RATE (%)
-                </span>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#e5a93c', fontWeight: 600 }}>
-                  {branchHazardRate}%
+            {/* Comparative Results Matrix */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: '11px',
+                  color: '#8b949e'
+                }}
+              >
+                <span>DATAPATH TIMING COMPARISON</span>
+                <span>
+                  PIPELINE SPEEDUP: <strong style={{ color: '#ff6a00', fontSize: '14px' }}>{speedup}x</strong>
                 </span>
               </div>
-              <input
-                type="range"
-                min="0"
-                max="30"
-                step="2"
-                value={branchHazardRate}
-                onChange={(e) => {
-                  setBranchHazardRate(Number(e.target.value));
+
+              {/* Architecture 1: Single-Cycle */}
+              <div
+                style={{
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  padding: '12px 14px',
+                  borderRadius: '4px'
                 }}
-                style={{ width: '100%', accentColor: '#e5a93c' }}
-              />
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div>
+                    <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: '13px', color: '#ffffff' }}>
+                      1. Single-Cycle Datapath
+                    </span>
+                    <span style={{ marginLeft: '10px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#8b949e' }}>
+                      t_clk = 850 ps (1.18 GHz) | CPI = 1.00
+                    </span>
+                  </div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', fontWeight: 600, color: '#f87171' }}>
+                    {singleCycleTotalMs.toFixed(3)} ms
+                  </div>
+                </div>
+                <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      width: `${(singleCycleTotalMs / maxTime) * 100}%`,
+                      height: '100%',
+                      background: '#f87171',
+                      borderRadius: '3px',
+                      transition: 'width 0.2s ease'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Architecture 2: Multi-Cycle */}
+              <div
+                style={{
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  padding: '12px 14px',
+                  borderRadius: '4px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div>
+                    <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: '13px', color: '#ffffff' }}>
+                      2. Multi-Cycle Datapath
+                    </span>
+                    <span style={{ marginLeft: '10px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#8b949e' }}>
+                      t_clk = 200 ps (5.00 GHz) | CPI = 4.20
+                    </span>
+                  </div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', fontWeight: 600, color: '#e5a93c' }}>
+                    {multiCycleTotalMs.toFixed(3)} ms
+                  </div>
+                </div>
+                <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      width: `${(multiCycleTotalMs / maxTime) * 100}%`,
+                      height: '100%',
+                      background: '#e5a93c',
+                      borderRadius: '3px',
+                      transition: 'width 0.2s ease'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Architecture 3: 5-Stage Pipelined */}
+              <div
+                style={{
+                  background: 'rgba(255, 106, 0, 0.08)',
+                  border: '1px solid #ff6a00',
+                  padding: '12px 14px',
+                  borderRadius: '4px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div>
+                    <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: '13px', color: '#ff6a00' }}>
+                      3. 5-Stage Pipelined (With Forwarding & Cache Model)
+                    </span>
+                    <span style={{ marginLeft: '10px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#d0d7de' }}>
+                      t_clk = 220 ps (4.55 GHz) | Effective CPI = {pipelinedCPI}
+                    </span>
+                  </div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', fontWeight: 700, color: '#ff6a00' }}>
+                    {pipelinedTotalMs.toFixed(3)} ms
+                  </div>
+                </div>
+                <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      width: `${(pipelinedTotalMs / maxTime) * 100}%`,
+                      height: '100%',
+                      background: '#ff6a00',
+                      borderRadius: '3px',
+                      transition: 'width 0.2s ease'
+                    }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Comparative Results Matrix */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: '11px',
-                color: '#8b949e'
-              }}
-            >
-              <span>ARCHITECTURE COMPARISON</span>
-              <span>
-                PIPELINE SPEEDUP: <strong style={{ color: '#ff6a00', fontSize: '14px' }}>{speedup}x</strong>
-              </span>
-            </div>
-
-            {/* Architecture 1: Single-Cycle */}
-            <div
-              style={{
-                background: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                padding: '14px',
-                borderRadius: '4px'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <div>
-                  <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: '14px', color: '#ffffff' }}>
-                    1. Single-Cycle Datapath
-                  </span>
-                  <span style={{ marginLeft: '10px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#8b949e' }}>
-                    t_clk = 850 ps (1.18 GHz) | CPI = 1.00
-                  </span>
-                </div>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', fontWeight: 600, color: '#f87171' }}>
-                  {singleCycleTotalMs.toFixed(3)} ms
-                </div>
-              </div>
-              <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '4px', overflow: 'hidden' }}>
-                <div
-                  style={{
-                    width: `${(singleCycleTotalMs / maxTime) * 100}%`,
-                    height: '100%',
-                    background: '#f87171',
-                    borderRadius: '4px',
-                    transition: 'width 0.2s ease'
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Architecture 2: Multi-Cycle */}
-            <div
-              style={{
-                background: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                padding: '14px',
-                borderRadius: '4px'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <div>
-                  <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: '14px', color: '#ffffff' }}>
-                    2. Multi-Cycle Datapath
-                  </span>
-                  <span style={{ marginLeft: '10px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#8b949e' }}>
-                    t_clk = 200 ps (5.00 GHz) | CPI = 4.20
-                  </span>
-                </div>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', fontWeight: 600, color: '#e5a93c' }}>
-                  {multiCycleTotalMs.toFixed(3)} ms
-                </div>
-              </div>
-              <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '4px', overflow: 'hidden' }}>
-                <div
-                  style={{
-                    width: `${(multiCycleTotalMs / maxTime) * 100}%`,
-                    height: '100%',
-                    background: '#e5a93c',
-                    borderRadius: '4px',
-                    transition: 'width 0.2s ease'
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Architecture 3: 5-Stage Pipelined */}
-            <div
-              style={{
-                background: 'rgba(255, 106, 0, 0.08)',
-                border: '1px solid #ff6a00',
-                padding: '14px',
-                borderRadius: '4px'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <div>
-                  <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: '14px', color: '#ff6a00' }}>
-                    3. 5-Stage Pipelined (With Forwarding & Cache Model)
-                  </span>
-                  <span style={{ marginLeft: '10px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#d0d7de' }}>
-                    t_clk = 220 ps (4.55 GHz) | Effective CPI = {pipelinedCPI}
-                  </span>
-                </div>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '14px', fontWeight: 700, color: '#ff6a00' }}>
-                  {pipelinedTotalMs.toFixed(3)} ms
-                </div>
-              </div>
-              <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '4px', overflow: 'hidden' }}>
-                <div
-                  style={{
-                    width: `${(pipelinedTotalMs / maxTime) * 100}%`,
-                    height: '100%',
-                    background: '#ff6a00',
-                    borderRadius: '4px',
-                    transition: 'width 0.2s ease'
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Academic Amdahl's Law & CPI formula callout */}
+          {/* Section 2: Amdahl's Law Calculator */}
           <div
             style={{
-              padding: '12px 16px',
-              background: 'rgba(0, 0, 0, 0.4)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '4px',
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: '11px',
-              color: '#8b949e',
               display: 'flex',
               flexDirection: 'column',
-              gap: '4px'
+              gap: '12px',
+              background: 'rgba(56, 189, 248, 0.04)',
+              border: '1px solid rgba(56, 189, 248, 0.2)',
+              padding: '16px',
+              borderRadius: '4px'
             }}
           >
-            <div style={{ color: '#38bdf8' }}>
-              COA PRINCIPLE // IRON LAW OF PROCESSOR PERFORMANCE:
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#38bdf8', fontWeight: 600 }}>
+                  SECTION 2: AMDAHL'S LAW SPEEDUP CALCULATOR
+                </div>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#8b949e', marginTop: '2px' }}>
+                  Speedup = 1 / ((1 - f) + (f / s))
+                </div>
+              </div>
+
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#8b949e' }}>OVERALL SPEEDUP: </span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '18px', fontWeight: 700, color: '#38bdf8' }}>
+                  {amdahlOverallSpeedup}x
+                </span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#6e7681', marginLeft: '8px' }}>
+                  (Max Limit: {amdahlTheoreticalMax}x)
+                </span>
+              </div>
             </div>
-            <div>
-              Execution Time = (Instruction Count) × (Cycles Per Instruction) × (Clock Cycle Time)
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '16px'
+              }}
+            >
+              {/* Fraction Enhanced f */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#8b949e' }}>
+                    ENHANCED FRACTION f (%)
+                  </span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#38bdf8', fontWeight: 600 }}>
+                    {amdahlFraction}% (f = {f.toFixed(2)})
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="95"
+                  step="5"
+                  value={amdahlFraction}
+                  onChange={(e) => setAmdahlFraction(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: '#38bdf8' }}
+                />
+              </div>
+
+              {/* Speedup on fraction s */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#8b949e' }}>
+                    ACCELERATOR SPEEDUP FACTOR s
+                  </span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#38bdf8', fontWeight: 600 }}>
+                    {amdahlSpeedupFactor}x
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="16"
+                  step="1"
+                  value={amdahlSpeedupFactor}
+                  onChange={(e) => setAmdahlSpeedupFactor(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: '#38bdf8' }}
+                />
+              </div>
             </div>
-            <div style={{ color: '#6e7681', fontSize: '10px' }}>
-              Pipelining reduces Clock Cycle Time down to the slowest individual stage (~220 ps), maintaining near-ideal CPI = 1.0 when hazards are mitigated via forwarding.
+
+            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: '#8b949e', lineHeight: 1.4 }}>
+              <strong>Amdahl's Insight:</strong> Even with infinite accelerator speedup (<span style={{ fontFamily: "'JetBrains Mono', monospace" }}>s → ∞</span>), the overall system speedup is strictly capped by the unenhanced portion at <strong style={{ color: '#ffffff' }}>{amdahlTheoreticalMax}x</strong> (<span style={{ fontFamily: "'JetBrains Mono', monospace" }}>1 / (1 - {f.toFixed(2)})</span>).
             </div>
           </div>
         </div>

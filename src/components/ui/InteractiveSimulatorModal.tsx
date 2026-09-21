@@ -9,7 +9,7 @@ interface InteractiveSimulatorModalProps {
 
 type SimulatorTab = 'SINGLE_INST' | 'PROGRAM_RUNNER';
 
-type InstructionType = 'ADD' | 'SUB' | 'AND' | 'OR' | 'SLT' | 'LOAD' | 'STORE' | 'BEQ';
+type InstructionType = 'ADD' | 'SUB' | 'AND' | 'OR' | 'SLT' | 'ADDI' | 'SUBI' | 'LOAD' | 'STORE' | 'BEQ' | 'BNE';
 
 interface InstructionDef {
   type: InstructionType;
@@ -79,6 +79,26 @@ const INSTRUCTION_CATALOG: Record<InstructionType, InstructionDef> = {
     defaultR2: 40,
     defaultDest: 'R3'
   },
+  ADDI: {
+    type: 'ADDI',
+    format: 'I',
+    opcode: '0010011',
+    funct3: '000',
+    desc: 'Add Immediate: Rd = Rs1 + Imm',
+    defaultR1: 15,
+    defaultR2: 10,
+    defaultDest: 'R3'
+  },
+  SUBI: {
+    type: 'SUBI',
+    format: 'I',
+    opcode: '0010011',
+    funct3: '000',
+    desc: 'Subtract Immediate (ADDI with negative Imm): Rd = Rs1 - Imm',
+    defaultR1: 30,
+    defaultR2: 8,
+    defaultDest: 'R3'
+  },
   LOAD: {
     type: 'LOAD',
     format: 'I',
@@ -107,6 +127,16 @@ const INSTRUCTION_CATALOG: Record<InstructionType, InstructionDef> = {
     desc: 'Branch if Equal: if (Rs1 == Rs2) PC += Offset',
     defaultR1: 10,
     defaultR2: 10,
+    defaultDest: 'PC + 8'
+  },
+  BNE: {
+    type: 'BNE',
+    format: 'B',
+    opcode: '1100011',
+    funct3: '001',
+    desc: 'Branch if Not Equal: if (Rs1 != Rs2) PC += Offset',
+    defaultR1: 10,
+    defaultR2: 4,
     defaultDest: 'PC + 8'
   }
 };
@@ -387,8 +417,35 @@ function parseCustomAssembly(source: string): { instructions: ProgramInstruction
           return { regs: r, mem: nextM, nextPc: i + 1 };
         }
       });
+    } else if (op === 'BEQ' || op === 'BNE') {
+      const rs1 = parseReg(parts[1]);
+      const rs2 = parseReg(parts[2]);
+      const target = parseImm(parts[3]);
+      if (rs1 === null || rs2 === null || isNaN(target)) {
+        return { instructions: [], error: `Line ${i + 1}: Invalid syntax for ${op}. Format: ${op} Rs1, Rs2, TargetIndex (e.g. ${op} R1, R2, 0)` };
+      }
+      instructions.push({
+        pc: instructions.length,
+        asm: `${op} R${rs1}, R${rs2}, ${parts[3]}`,
+        comment: `Branch to line ${target} if ${op === 'BEQ' ? 'R' + rs1 + ' == R' + rs2 : 'R' + rs1 + ' != R' + rs2}`,
+        execute: (r, m) => {
+          const cond = op === 'BEQ' ? r[rs1] === r[rs2] : r[rs1] !== r[rs2];
+          return {
+            regs: r,
+            mem: m,
+            nextPc: cond ? target : i + 1
+          };
+        }
+      });
+    } else if (op === 'NOP') {
+      instructions.push({
+        pc: instructions.length,
+        asm: 'NOP',
+        comment: 'No operation (pipeline stall bubble)',
+        execute: (r, m) => ({ regs: r, mem: m, nextPc: i + 1 })
+      });
     } else {
-      return { instructions: [], error: `Line ${i + 1}: Unsupported opcode '${op}'. Supported: ADD, SUB, ADDI, SUBI, AND, OR, SLT, LOAD, STORE` };
+      return { instructions: [], error: `Line ${i + 1}: Unsupported opcode '${op}'. Supported: ADD, SUB, ADDI, SUBI, AND, OR, SLT, LOAD, STORE, BEQ, BNE, NOP` };
     }
   }
 
@@ -500,19 +557,18 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
         audio.playStep();
         setCycleCount((c) => c + 1);
 
-        setRegisters((currentRegs) => {
-          setMemory((currentMem) => {
-            const res = inst.execute(currentRegs, currentMem);
-            if (res.modifiedReg !== undefined) {
-              setLastModifiedReg(res.modifiedReg);
-            }
-            return res.mem;
-          });
-          const res = inst.execute(currentRegs, memory);
-          return res.regs;
-        });
-
+        // Single deterministic state transition: old CPU state -> instruction -> new CPU state
         const res = inst.execute(registers, memory);
+        setRegisters(res.regs);
+        setMemory(res.mem);
+        if (res.modifiedReg !== undefined) {
+          setLastModifiedReg(res.modifiedReg);
+        }
+
+        if (res.nextPc >= currentInstructions.length) {
+          setIsProgramRunning(false);
+          audio.playAluChime();
+        }
         return res.nextPc;
       });
     }, 1000);
@@ -547,6 +603,14 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
       computedResult = r1Val < r2Val ? 1 : 0;
       aluFormula = `${r1Val} < ${r2Val} → ${computedResult}`;
       break;
+    case 'ADDI':
+      computedResult = r1Val + r2Val;
+      aluFormula = `${r1Val} + ${r2Val} (Imm) = ${computedResult}`;
+      break;
+    case 'SUBI':
+      computedResult = r1Val - r2Val;
+      aluFormula = `${r1Val} - ${r2Val} (Imm) = ${computedResult}`;
+      break;
     case 'LOAD':
       computedResult = 128;
       aluFormula = `Mem[Base + 0] → Read: ${computedResult}`;
@@ -559,6 +623,10 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
       computedResult = r1Val === r2Val ? 1 : 0;
       aluFormula = `${r1Val} == ${r2Val} → Branch ${computedResult ? 'TAKEN' : 'NOT TAKEN'}`;
       break;
+    case 'BNE':
+      computedResult = r1Val !== r2Val ? 1 : 0;
+      aluFormula = `${r1Val} != ${r2Val} → Branch ${computedResult ? 'TAKEN' : 'NOT TAKEN'}`;
+      break;
   }
 
   const rs1Binary = '00001';
@@ -567,7 +635,20 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
   const opcode = currentDef.opcode;
   const funct3 = currentDef.funct3;
   const funct7 = currentDef.funct7 || '0000000';
-  const machineCode32 = `${funct7}${rs2Binary}${rs1Binary}${funct3}${rdBinary}${opcode}`;
+
+  let machineCode32 = '';
+  if (currentDef.format === 'I') {
+    const imm12 = (r2Val & 0xFFF).toString(2).padStart(12, '0');
+    machineCode32 = `${imm12}${rs1Binary}${funct3}${rdBinary}${opcode}`;
+  } else if (currentDef.format === 'S') {
+    const imm12 = (r2Val & 0xFFF).toString(2).padStart(12, '0');
+    machineCode32 = `${imm12.slice(0, 7)}${rs2Binary}${rs1Binary}${funct3}${imm12.slice(7)}${opcode}`;
+  } else if (currentDef.format === 'B') {
+    const imm12 = (8 & 0xFFF).toString(2).padStart(12, '0');
+    machineCode32 = `${imm12.slice(0, 7)}${rs2Binary}${rs1Binary}${funct3}${imm12.slice(7)}${opcode}`;
+  } else {
+    machineCode32 = `${funct7}${rs2Binary}${rs1Binary}${funct3}${rdBinary}${opcode}`;
+  }
   const hexCode = '0x' + parseInt(machineCode32, 2).toString(16).toUpperCase().padStart(8, '0');
 
   const singleStages = [
@@ -739,7 +820,7 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
                   letterSpacing: '0.08em'
                 }}
               >
-                RISC-V / MIPS PROCESSOR SIMULATION, CUSTOM COMPILER & 16-REGISTER BANK
+                EDUCATIONAL RISC-V (RV32I-INSPIRED) ARCHITECTURE & 16-REGISTER BANK SIMULATOR
               </div>
             </div>
           </div>
@@ -855,7 +936,7 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
                     marginBottom: '8px'
                   }}
                 >
-                  SELECT INSTRUCTION (RISC-V / MIPS ISA)
+                  SELECT INSTRUCTION (RISC-V RV32I EDUCATIONAL ISA)
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
                   {(Object.keys(INSTRUCTION_CATALOG) as InstructionType[]).map((inst) => {
