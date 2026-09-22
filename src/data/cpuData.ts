@@ -152,125 +152,179 @@ export const EXECUTION_STAGES: StageInfo[] = [
     id: 'FETCH',
     number: '01',
     title: 'INSTRUCTION FETCH',
-    description: 'The Program Counter (PC) emits the target memory address. The instruction word ADD R1, R2 is retrieved into the Instruction Register (IR).',
+    description: 'The Program Counter (PC) emits address 0x0040 onto the address bus. Main Memory retrieves the instruction word for ADD x3, x1, x2 into the Instruction Register (IR).',
     activeComponents: ['PC', 'MEMORY', 'IR'],
-    dataFlowDescription: 'PC (0x0040) → Memory Address Bus → Read Instruction Word → Loaded into IR',
+    dataFlowDescription: 'PC (0x0040) → Memory Address Bus → Instruction Packet Retrieved → Latched into IR',
     busPath: [['PC', 'MEMORY'], ['MEMORY', 'IR']],
     microOps: [
-      'MAR ← [PC]',
-      'Memory Read: M[MAR] → MBR',
-      'IR ← MBR (Opcode: ADD)',
-      'PC ← PC + 4'
+      'MAR ← [PC] (0x0040)',
+      'Memory Read: M[0x0040] → MBR',
+      'IR ← MBR (ADD x3, x1, x2 [0x002081B3])',
+      'PC ← PC + 4 (0x0044)',
+      'FETCH COMPLETE'
     ],
     cpuState: {
       pc: '0x0040',
-      ir: 'ADD R1, R2',
+      ir: 'ADD x3, x1, x2',
       r1: 20,
       r2: 22,
       r3: 0,
       aluOp: 'STANDBY',
       aluResult: null,
-      status: 'FETCHING INSTRUCTION WORD'
+      status: 'FETCH COMPLETE: IR ← ADD x3, x1, x2'
+    },
+    controlSignals: {
+      opcode: '0110011',
+      funct3: '000',
+      funct7: '0000000',
+      rd: 'x3',
+      rs1: 'x1',
+      rs2: 'x2',
+      aluOp: 'STANDBY',
+      regWrite: '0'
     }
   },
   {
     id: 'DECODE',
     number: '02',
-    title: 'INSTRUCTION DECODE',
-    description: 'The Control Unit inspects opcode bits from IR, identifying an arithmetic ADD operation, and asserts datapath control lines.',
+    title: 'INSTRUCTION DECODE & CONTROL GENERATION',
+    description: 'The instruction moves from IR to the Control Unit. The CU decodes opcode 0110011, funct3 000, and funct7 0000000 to synthesize datapath control lines.',
     activeComponents: ['IR', 'CU'],
-    dataFlowDescription: 'IR[6:0] (Opcode 0x33) & IR[14:12] (funct3 0x0) → Control Unit Decoder → Asserts ALUOp=ADD, RegWrite=1',
+    dataFlowDescription: 'IR (ADD x3, x1, x2) → Control Unit Decoder → Asserts ALUOp=ADD, RegWrite=1, ALUSrc=0',
     busPath: [['IR', 'CU']],
     microOps: [
-      'Decode Opcode: 0x33 (0110011, RV32I R-Type OP)',
-      'Decode funct3: 0x0 (ADD) & funct7: 0x00',
-      'Generate Control Signals (ALUOp=ADD, RegWrite=1)',
-      'Identify Source Registers rs1=R1, rs2=R2 and Destination rd=R3'
+      'Decode Opcode: 0110011 (RV32I OP / R-Type)',
+      'Decode funct3: 000 (ADD) & funct7: 0000000',
+      'Extract Source Registers: rs1 = x1, rs2 = x2',
+      'Extract Destination Register: rd = x3',
+      'Generate Control Signals: ALUOp=ADD, RegWrite=1, MemToReg=0'
     ],
     cpuState: {
       pc: '0x0044',
-      ir: 'ADD R1, R2',
+      ir: 'ADD x3, x1, x2',
       r1: 20,
       r2: 22,
       r3: 0,
       aluOp: 'ADD_PREPARE',
       aluResult: null,
-      status: 'DECODING OPCODE & CONTROL SIGNALS'
+      status: 'DECODING COMPLETE: ALUOp=ADD, RegWrite=1'
+    },
+    controlSignals: {
+      opcode: '0110011',
+      funct3: '000',
+      funct7: '0000000',
+      rd: 'x3',
+      rs1: 'x1',
+      rs2: 'x2',
+      aluOp: 'ADD',
+      regWrite: '1'
     }
   },
   {
     id: 'REGISTER_READ',
     number: '03',
     title: 'REGISTER OPERAND READ',
-    description: 'Register File latches addresses for R1 and R2 onto internal read ports, feeding operand values (20 and 22) to the ALU input buses.',
+    description: 'The Register File addresses rs1 (x1) and rs2 (x2). Two operand data packets physically leave the dual read ports: x1=20 and x2=22 travel to the ALU inputs.',
     activeComponents: ['REG_FILE', 'ALU'],
-    dataFlowDescription: 'Register File Port A (R1=20) & Port B (R2=22) → ALU Operand Input Latches',
+    dataFlowDescription: 'Register File Read Port 1 (x1=20) & Port 2 (x2=22) → ALU Operand Input Buses',
     busPath: [['REG_FILE', 'ALU']],
     microOps: [
-      'Read Address A ← R1 (#1)',
-      'Read Address B ← R2 (#2)',
-      'Operand A Latch ← 20',
-      'Operand B Latch ← 22'
+      'Read Address 1 ← x1 (contains 20)',
+      'Read Address 2 ← x2 (contains 22)',
+      'Operand A Latch ← 20 (x1)',
+      'Operand B Latch ← 22 (x2)',
+      'ALU Inputs Primed for Addition'
     ],
     cpuState: {
       pc: '0x0044',
-      ir: 'ADD R1, R2',
+      ir: 'ADD x3, x1, x2',
       r1: 20,
       r2: 22,
       r3: 0,
-      aluOp: 'OPERANDS_READY',
+      aluOp: 'OPERANDS_LATCHED',
       aluResult: null,
-      status: 'OPERANDS READ: R1=20, R2=22'
+      status: 'OPERANDS READ: x1 = 20, x2 = 22'
+    },
+    controlSignals: {
+      opcode: '0110011',
+      funct3: '000',
+      funct7: '0000000',
+      rd: 'x3',
+      rs1: 'x1',
+      rs2: 'x2',
+      aluOp: 'ADD',
+      regWrite: '1'
     }
   },
   {
     id: 'EXECUTE',
     number: '04',
     title: 'ALU EXECUTION',
-    description: 'The Arithmetic Logic Unit adds the two binary operands (20 + 22) through 32-bit parallel adder circuits, producing result 42.',
-    activeComponents: ['ALU', 'CU'],
+    description: 'The Arithmetic Logic Unit executes 20 + 22 through its 32-bit parallel adder core, producing result 42. A result packet travels along the write-back bus.',
+    activeComponents: ['ALU', 'REG_FILE'],
     dataFlowDescription: 'ALU executes 20 + 22 → Sum Output = 42 → Flags: Zero=0, Carry=0, Overflow=0',
     busPath: [['ALU', 'REG_FILE']],
     microOps: [
-      'ALU Control ← ADD',
-      'Computation: 20 + 22',
-      'ALU Output Latch ← 42',
-      'Condition Flags: Z=0, C=0, V=0, N=0'
+      'ALU Operation: 20 + 22',
+      '32-bit Adder Output: 42 (0x0000002A)',
+      'Condition Flags: Z=0, C=0, V=0, N=0',
+      'Result Packet dispatched onto Write-Back Bus'
     ],
     cpuState: {
       pc: '0x0044',
-      ir: 'ADD R1, R2',
+      ir: 'ADD x3, x1, x2',
       r1: 20,
       r2: 22,
       r3: 0,
       aluOp: '20 + 22 = 42',
       aluResult: 42,
-      status: 'ALU COMPUTED RESULT: 42'
+      status: 'ALU COMPUTED: 20 + 22 = 42'
+    },
+    controlSignals: {
+      opcode: '0110011',
+      funct3: '000',
+      funct7: '0000000',
+      rd: 'x3',
+      rs1: 'x1',
+      rs2: 'x2',
+      aluOp: 'ADD',
+      regWrite: '1'
     }
   },
   {
     id: 'WRITE_BACK',
     number: '05',
     title: 'REGISTER WRITE-BACK',
-    description: 'The result value 42 is routed over the write-back bus and committed into destination register R3 under write-enable control.',
+    description: 'The computed result (42) reaches the Register File write port. With RegWrite asserted, register x3 commits the value, transitioning from 0 to 42.',
     activeComponents: ['ALU', 'REG_FILE'],
-    dataFlowDescription: 'ALU Result (42) → Write-Back Data Bus → Register File [R3] committed',
+    dataFlowDescription: 'Write-Back Bus (42) → Register File Write Port [x3] → x3 latched: 0 → 42',
     busPath: [['ALU', 'REG_FILE']],
     microOps: [
-      'Write Address ← R3',
+      'Write Address ← x3',
       'Write Data Bus ← 42',
-      'Assert RegWrite signal',
-      'R3 ← 42 committed into register array'
+      'Assert RegWrite = 1',
+      'x3 updated: 0 → 42',
+      'INSTRUCTION COMPLETE: x3 = 42'
     ],
     cpuState: {
       pc: '0x0044',
-      ir: 'ADD R1, R2',
+      ir: 'ADD x3, x1, x2',
       r1: 20,
       r2: 22,
       r3: 42,
-      aluOp: 'DONE',
+      aluOp: 'COMMITTED',
       aluResult: 42,
-      status: 'EXECUTION COMPLETE: R3 ← 42'
+      status: '✓ INSTRUCTION COMPLETE: x3 = 42'
+    },
+    controlSignals: {
+      opcode: '0110011',
+      funct3: '000',
+      funct7: '0000000',
+      rd: 'x3',
+      rs1: 'x1',
+      rs2: 'x2',
+      aluOp: 'ADD',
+      regWrite: '1'
     }
   }
 ];

@@ -11,9 +11,11 @@ import { Loader } from './components/ui/Loader';
 import { InteractiveSimulatorModal } from './components/ui/InteractiveSimulatorModal';
 import { BenchmarkModal } from './components/ui/BenchmarkModal';
 import { QuizDrawer } from './components/ui/QuizDrawer';
+import { ExecutionTraceOverlay } from './components/ui/ExecutionTraceOverlay';
 import { EXECUTION_STAGES } from './data/cpuData';
 import { ComponentId, ExecutionStage } from './types';
 import { audio } from './utils/audio';
+import { scrollStore } from './stores/scrollStore';
 
 export const App: React.FC = () => {
   const [scrollProgress, setScrollProgress] = useState<number>(0);
@@ -47,6 +49,7 @@ export const App: React.FC = () => {
       const maxScroll = docHeight - window.innerHeight;
       if (maxScroll <= 0) return;
       const progress = Math.min(1, Math.max(0, scrollY / maxScroll));
+      scrollStore.setTarget(progress);
       setTargetProgress(progress);
     };
 
@@ -58,20 +61,22 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // Smooth lerp loop for butter-smooth camera movement even with abrupt mouse wheels
+  // Smooth lerp loop: updates scrollStore at 60fps for Three.js, throttles React state to eliminate DOM lag
   useEffect(() => {
     let animFrame: number;
+    let lastReactProgress = 0;
     const lerpLoop = () => {
-      setScrollProgress((prev) => {
-        const delta = targetProgress - prev;
-        if (Math.abs(delta) < 0.0005) return targetProgress;
-        return prev + delta * 0.12;
-      });
+      const curr = scrollStore.update();
+      const diff = Math.abs(curr - lastReactProgress);
+      if (diff > 0.005 || (curr <= 0.001 && lastReactProgress !== 0) || (curr >= 0.999 && lastReactProgress !== 1)) {
+        lastReactProgress = curr;
+        setScrollProgress(curr);
+      }
       animFrame = requestAnimationFrame(lerpLoop);
     };
     animFrame = requestAnimationFrame(lerpLoop);
     return () => cancelAnimationFrame(animFrame);
-  }, [targetProgress]);
+  }, []);
 
   // Sync scroll with execution stages if user scrolls through the execution zone (0.68 -> 0.82)
   useEffect(() => {
@@ -149,7 +154,16 @@ export const App: React.FC = () => {
         onSelectComponent={(id) => setActiveComponentId(id)}
         highlightedComponents={scrollProgress >= 0.65 ? highlightedComponents : []}
         currentStage={scrollProgress >= 0.65 ? currentStage : null}
+        currentStageIndex={currentStageIndex}
         isExecuting={isPlaying || scrollProgress >= 0.68}
+        isPlaying={isPlaying}
+      />
+
+      {/* Real-time Physical Execution Trace HUD Overlay */}
+      <ExecutionTraceOverlay
+        currentStageIndex={currentStageIndex}
+        isPlaying={isPlaying}
+        scrollProgress={scrollProgress}
       />
 
       {/* 4. Section Overlays */}

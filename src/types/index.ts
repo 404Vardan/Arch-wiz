@@ -49,6 +49,16 @@ export interface StageInfo {
     aluResult: number | null;
     status: string;
   };
+  controlSignals?: {
+    opcode: string;
+    funct3: string;
+    funct7: string;
+    rd: string;
+    rs1: string;
+    rs2: string;
+    aluOp: string;
+    regWrite: string;
+  };
 }
 
 export type CacheFlowType = 'HIT' | 'MISS' | null;

@@ -76,7 +76,7 @@ export const ExecutionSection: React.FC<ExecutionSectionProps> = ({
                 marginTop: '4px'
               }}
             >
-              ADD R1, R2
+              ADD x3, x1, x2
             </h2>
           </div>
 
@@ -193,6 +193,77 @@ export const ExecutionSection: React.FC<ExecutionSectionProps> = ({
           </div>
         </div>
 
+        {/* Control Signals & Bitfield Decoder (Appears prominently during DECODE stage) */}
+        {currentStage.controlSignals && currentStageIndex === 1 && (
+          <div
+            style={{
+              background: 'rgba(255, 106, 0, 0.08)',
+              border: '1px solid rgba(255, 106, 0, 0.3)',
+              borderRadius: '3px',
+              padding: '10px 12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+              animation: 'fadeIn 0.2s ease-out'
+            }}
+          >
+            <div
+              style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '9px',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: '#ff8533',
+                fontWeight: 600
+              }}
+            >
+              DECODED RV32I CONTROL SIGNALS (IR → CONTROL UNIT)
+            </div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: '6px',
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '10px'
+              }}
+            >
+              <div style={{ background: 'rgba(0,0,0,0.4)', padding: '4px 6px', borderRadius: '2px' }}>
+                <span style={{ color: '#8b949e' }}>OPCODE: </span>
+                <span style={{ color: '#ffffff', fontWeight: 600 }}>0110011</span>
+              </div>
+              <div style={{ background: 'rgba(0,0,0,0.4)', padding: '4px 6px', borderRadius: '2px' }}>
+                <span style={{ color: '#8b949e' }}>FUNCT3: </span>
+                <span style={{ color: '#ffffff', fontWeight: 600 }}>000</span>
+              </div>
+              <div style={{ background: 'rgba(0,0,0,0.4)', padding: '4px 6px', borderRadius: '2px' }}>
+                <span style={{ color: '#8b949e' }}>FUNCT7: </span>
+                <span style={{ color: '#ffffff', fontWeight: 600 }}>0000000</span>
+              </div>
+              <div style={{ background: 'rgba(0,0,0,0.4)', padding: '4px 6px', borderRadius: '2px' }}>
+                <span style={{ color: '#8b949e' }}>ALUOp: </span>
+                <span style={{ color: '#38bdf8', fontWeight: 600 }}>ADD</span>
+              </div>
+              <div style={{ background: 'rgba(0,0,0,0.4)', padding: '4px 6px', borderRadius: '2px' }}>
+                <span style={{ color: '#8b949e' }}>RS1: </span>
+                <span style={{ color: '#ffd700', fontWeight: 600 }}>x1</span>
+              </div>
+              <div style={{ background: 'rgba(0,0,0,0.4)', padding: '4px 6px', borderRadius: '2px' }}>
+                <span style={{ color: '#8b949e' }}>RS2: </span>
+                <span style={{ color: '#38bdf8', fontWeight: 600 }}>x2</span>
+              </div>
+              <div style={{ background: 'rgba(0,0,0,0.4)', padding: '4px 6px', borderRadius: '2px' }}>
+                <span style={{ color: '#8b949e' }}>RD: </span>
+                <span style={{ color: '#4ade80', fontWeight: 600 }}>x3</span>
+              </div>
+              <div style={{ background: 'rgba(0,0,0,0.4)', padding: '4px 6px', borderRadius: '2px' }}>
+                <span style={{ color: '#8b949e' }}>RegWrite: </span>
+                <span style={{ color: '#ff6a00', fontWeight: 600 }}>1</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Live Datapath & Register State Table */}
         <div
           style={{
@@ -203,14 +274,14 @@ export const ExecutionSection: React.FC<ExecutionSectionProps> = ({
         >
           <div
             style={{
-              background: 'rgba(0,0,0,0.3)',
+              background: currentStageIndex === 2 ? 'rgba(255, 215, 0, 0.12)' : 'rgba(0,0,0,0.3)',
+              border: `1px solid ${currentStageIndex === 2 ? 'rgba(255, 215, 0, 0.4)' : 'rgba(255,255,255,0.06)'}`,
               padding: '8px 10px',
-              border: '1px solid rgba(255,255,255,0.06)',
               borderRadius: '2px'
             }}
           >
             <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#6e7681' }}>
-              R1 (SRC 1)
+              x1 (SRC 1)
             </div>
             <div
               style={{
@@ -227,14 +298,14 @@ export const ExecutionSection: React.FC<ExecutionSectionProps> = ({
 
           <div
             style={{
-              background: 'rgba(0,0,0,0.3)',
+              background: currentStageIndex === 2 ? 'rgba(56, 189, 248, 0.12)' : 'rgba(0,0,0,0.3)',
+              border: `1px solid ${currentStageIndex === 2 ? 'rgba(56, 189, 248, 0.4)' : 'rgba(255,255,255,0.06)'}`,
               padding: '8px 10px',
-              border: '1px solid rgba(255,255,255,0.06)',
               borderRadius: '2px'
             }}
           >
             <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#6e7681' }}>
-              R2 (SRC 2)
+              x2 (SRC 2)
             </div>
             <div
               style={{
@@ -251,9 +322,9 @@ export const ExecutionSection: React.FC<ExecutionSectionProps> = ({
 
           <div
             style={{
-              background: 'rgba(0,0,0,0.3)',
+              background: currentStageIndex === 3 ? 'rgba(255, 106, 0, 0.15)' : 'rgba(0,0,0,0.3)',
+              border: `1px solid ${currentStageIndex === 3 ? 'rgba(255, 106, 0, 0.5)' : 'rgba(255,255,255,0.06)'}`,
               padding: '8px 10px',
-              border: '1px solid rgba(255,255,255,0.06)',
               borderRadius: '2px'
             }}
           >
@@ -275,25 +346,26 @@ export const ExecutionSection: React.FC<ExecutionSectionProps> = ({
 
           <div
             style={{
-              background: isCompleted ? 'rgba(255, 106, 0, 0.15)' : 'rgba(0,0,0,0.3)',
-              border: `1px solid ${isCompleted ? '#ff6a00' : 'rgba(255,255,255,0.06)'}`,
+              background: isCompleted ? 'rgba(74, 222, 128, 0.15)' : 'rgba(0,0,0,0.3)',
+              border: `1px solid ${isCompleted ? '#4ade80' : 'rgba(255,255,255,0.06)'}`,
               padding: '8px 10px',
-              borderRadius: '2px'
+              borderRadius: '2px',
+              transition: 'all 0.3s ease'
             }}
           >
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#ff6a00' }}>
-              R3 (DEST)
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: isCompleted ? '#4ade80' : '#ff6a00' }}>
+              x3 (DEST)
             </div>
             <div
               style={{
                 fontFamily: "'JetBrains Mono', monospace",
                 fontSize: '14px',
                 fontWeight: 700,
-                color: currentStage.cpuState.r3 === 42 ? '#ff6a00' : '#ffffff',
+                color: isCompleted ? '#4ade80' : '#ffffff',
                 marginTop: '2px'
               }}
             >
-              {currentStage.cpuState.r3}
+              {isCompleted ? '42 (0 → 42)' : currentStage.cpuState.r3}
             </div>
           </div>
         </div>
@@ -388,11 +460,11 @@ export const ExecutionSection: React.FC<ExecutionSectionProps> = ({
             style={{
               fontFamily: "'JetBrains Mono', monospace",
               fontSize: '11px',
-              color: isCompleted ? '#ff6a00' : '#8b949e',
+              color: isCompleted ? '#4ade80' : '#8b949e',
               fontWeight: isCompleted ? 600 : 400
             }}
           >
-            {isCompleted ? 'EXECUTION COMPLETE // R3 ← 42 // CYCLE 05' : `CYCLE 0${currentStageIndex + 1}`}
+            {isCompleted ? '✓ INSTRUCTION COMPLETE // x3 ← 42 // CYCLE 05' : `CYCLE 0${currentStageIndex + 1}`}
           </div>
         </div>
       </div>
