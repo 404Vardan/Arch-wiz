@@ -11,7 +11,7 @@ import { Loader } from './components/ui/Loader';
 import { InteractiveSimulatorModal } from './components/ui/InteractiveSimulatorModal';
 import { BenchmarkModal } from './components/ui/BenchmarkModal';
 import { QuizDrawer } from './components/ui/QuizDrawer';
-import { ExecutionTraceOverlay } from './components/ui/ExecutionTraceOverlay';
+import { SimulationLabModal } from './components/simulator/SimulationLabModal';
 import { EXECUTION_STAGES } from './data/cpuData';
 import { ComponentId, ExecutionStage } from './types';
 import { audio } from './utils/audio';
@@ -22,6 +22,7 @@ export const App: React.FC = () => {
   const [targetProgress, setTargetProgress] = useState<number>(0);
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
   const [activeComponentId, setActiveComponentId] = useState<ComponentId | null>(null);
+  const [isSimulationLabOpen, setIsSimulationLabOpen] = useState<boolean>(false);
   const [isSimulatorOpen, setIsSimulatorOpen] = useState<boolean>(false);
   const [isBenchmarkOpen, setIsBenchmarkOpen] = useState<boolean>(false);
   const [isQuizOpen, setIsQuizOpen] = useState<boolean>(false);
@@ -142,6 +143,7 @@ export const App: React.FC = () => {
       <Navbar
         scrollProgress={scrollProgress}
         onNavigate={scrollToProgress}
+        onOpenSimulationLab={() => setIsSimulationLabOpen(true)}
         onOpenSimulator={() => setIsSimulatorOpen(true)}
         onOpenBenchmark={() => setIsBenchmarkOpen(true)}
         onOpenQuiz={() => setIsQuizOpen(true)}
@@ -154,16 +156,13 @@ export const App: React.FC = () => {
         onSelectComponent={(id) => setActiveComponentId(id)}
         highlightedComponents={scrollProgress >= 0.65 ? highlightedComponents : []}
         currentStage={scrollProgress >= 0.65 ? currentStage : null}
-        currentStageIndex={currentStageIndex}
         isExecuting={isPlaying || scrollProgress >= 0.68}
-        isPlaying={isPlaying}
       />
 
-      {/* Real-time Physical Execution Trace HUD Overlay */}
-      <ExecutionTraceOverlay
-        currentStageIndex={currentStageIndex}
-        isPlaying={isPlaying}
-        scrollProgress={scrollProgress}
+      {/* Dedicated Standalone 3D CPU Simulation Lab */}
+      <SimulationLabModal
+        isOpen={isSimulationLabOpen}
+        onClose={() => setIsSimulationLabOpen(false)}
       />
 
       {/* 4. Section Overlays */}
@@ -171,7 +170,7 @@ export const App: React.FC = () => {
       <HeroOverlay
         opacity={heroOpacity}
         onExplore={() => scrollToProgress(0.60)}
-        onViewExecution={() => scrollToProgress(0.74)}
+        onViewExecution={() => setIsSimulationLabOpen(true)}
       />
 
       {/* Component Details Inspection Drawer / Modal */}
@@ -215,6 +214,7 @@ export const App: React.FC = () => {
           setCurrentStageIndex(idx);
         }}
         scrollProgress={scrollProgress}
+        onOpenSimulationLab={() => setIsSimulationLabOpen(true)}
       />
 
       {/* Memory Cache Subsystem Section */}

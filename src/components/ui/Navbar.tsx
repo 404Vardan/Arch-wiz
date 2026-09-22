@@ -5,6 +5,7 @@ import { audio } from '../../utils/audio';
 interface NavbarProps {
   scrollProgress: number;
   onNavigate: (sectionProgress: number) => void;
+  onOpenSimulationLab?: () => void;
   onOpenSimulator: () => void;
   onOpenBenchmark: () => void;
   onOpenQuiz: () => void;
@@ -13,6 +14,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   scrollProgress,
   onNavigate,
+  onOpenSimulationLab,
   onOpenSimulator,
   onOpenBenchmark,
   onOpenQuiz
@@ -206,7 +208,42 @@ export const Navbar: React.FC<NavbarProps> = ({
           <span>QUIZ</span>
         </button>
 
-        {/* Interactive Simulator Trigger */}
+        {/* Interactive 3D CPU Simulation Lab Trigger */}
+        <button
+          onClick={() => {
+            audio.playClick();
+            if (onOpenSimulationLab) onOpenSimulationLab();
+            else onOpenSimulator();
+          }}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+            padding: '6px 12px',
+            background: '#ff6a00',
+            border: '1px solid #ff6a00',
+            color: '#000000',
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '10px',
+            fontWeight: 700,
+            letterSpacing: '0.04em',
+            borderRadius: '2px',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            boxShadow: '0 0 12px rgba(255, 106, 0, 0.3)'
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.background = '#ff8533';
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.background = '#ff6a00';
+          }}
+        >
+          <Cpu size={12} />
+          <span>CPU SIMULATOR</span>
+        </button>
+
+        {/* Custom Assembly Sandbox Trigger */}
         <button
           onClick={() => {
             audio.playClick();
@@ -216,29 +253,27 @@ export const Navbar: React.FC<NavbarProps> = ({
             display: 'inline-flex',
             alignItems: 'center',
             gap: '5px',
-            padding: '6px 12px',
-            background: 'rgba(255, 106, 0, 0.12)',
-            border: '1px solid #ff6a00',
-            color: '#ff6a00',
+            padding: '6px 10px',
+            background: 'rgba(255, 255, 255, 0.04)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            color: '#d0d7de',
             fontFamily: "'JetBrains Mono', monospace",
             fontSize: '10px',
-            fontWeight: 600,
-            letterSpacing: '0.04em',
+            fontWeight: 500,
             borderRadius: '2px',
             cursor: 'pointer',
             transition: 'all 0.2s ease'
           }}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.background = '#ff6a00';
-            (e.currentTarget as HTMLElement).style.color = '#000000';
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.background = 'rgba(255, 106, 0, 0.12)';
+            (e.currentTarget as HTMLElement).style.borderColor = '#ff6a00';
             (e.currentTarget as HTMLElement).style.color = '#ff6a00';
           }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255, 255, 255, 0.1)';
+            (e.currentTarget as HTMLElement).style.color = '#d0d7de';
+          }}
         >
-          <Cpu size={12} />
-          <span>SIMULATOR LAB</span>
+          <span>ASM LAB</span>
         </button>
 
         {/* Audio Mute/Unmute Toggle */}

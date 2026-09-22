@@ -5,7 +5,6 @@ import { ContactShadows } from '@react-three/drei';
 import { LaptopModel } from './LaptopModel';
 import { CPUArchitecture } from './CPUArchitecture';
 import { DataFlowParticles } from './DataFlowParticles';
-import { InstructionPacketSystem } from './InstructionPacketSystem';
 import { ComponentId, ExecutionStage } from '../../types';
 import { scrollStore } from '../../stores/scrollStore';
 
@@ -15,9 +14,7 @@ interface StudioSceneProps {
   onSelectComponent: (id: ComponentId) => void;
   highlightedComponents?: ComponentId[];
   currentStage: ExecutionStage | null;
-  currentStageIndex: number;
   isExecuting: boolean;
-  isPlaying: boolean;
 }
 
 // Pre-allocated static scratch vectors to eliminate per-frame GC allocations
@@ -140,9 +137,7 @@ export const StudioScene: React.FC<StudioSceneProps> = ({
   onSelectComponent,
   highlightedComponents = [],
   currentStage,
-  currentStageIndex,
-  isExecuting,
-  isPlaying
+  isExecuting
 }) => {
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 1 }}>
@@ -214,14 +209,7 @@ export const StudioScene: React.FC<StudioSceneProps> = ({
         <DataFlowParticles
           currentStage={currentStage}
           scrollProgress={scrollProgress}
-          isExecuting={isExecuting || isPlaying}
-        />
-
-        {/* 3D Traveling Instruction & Operand Packet System */}
-        <InstructionPacketSystem
-          currentStageIndex={currentStageIndex}
-          scrollProgress={scrollProgress}
-          isPlaying={isPlaying || isExecuting}
+          isExecuting={isExecuting}
         />
 
         {/* Contact Shadow on Studio Ground */}

@@ -11,6 +11,7 @@ interface ExecutionSectionProps {
   onReset: () => void;
   onSelectStage: (index: number) => void;
   scrollProgress: number;
+  onOpenSimulationLab?: () => void;
 }
 
 export const ExecutionSection: React.FC<ExecutionSectionProps> = ({
@@ -20,7 +21,8 @@ export const ExecutionSection: React.FC<ExecutionSectionProps> = ({
   onStep,
   onReset,
   onSelectStage,
-  scrollProgress
+  scrollProgress,
+  onOpenSimulationLab
 }) => {
   // Only show when in execution scroll zone (0.68 -> 0.85) or when manually active
   const isVisible = scrollProgress >= 0.65 && scrollProgress <= 0.86;
@@ -80,22 +82,49 @@ export const ExecutionSection: React.FC<ExecutionSectionProps> = ({
             </h2>
           </div>
 
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '4px 10px',
-              background: 'rgba(255, 106, 0, 0.1)',
-              border: '1px solid rgba(255, 106, 0, 0.3)',
-              borderRadius: '2px',
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: '11px',
-              color: '#ff6a00'
-            }}
-          >
-            <Activity size={12} />
-            STAGE {currentStage.number} / 05
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {onOpenSimulationLab && (
+              <button
+                onClick={() => {
+                  audio.playClick();
+                  onOpenSimulationLab();
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '5px 10px',
+                  background: '#ff6a00',
+                  border: 'none',
+                  borderRadius: '2px',
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  color: '#000000',
+                  cursor: 'pointer'
+                }}
+              >
+                <span>ENTER LAB</span>
+              </button>
+            )}
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 10px',
+                background: 'rgba(255, 106, 0, 0.1)',
+                border: '1px solid rgba(255, 106, 0, 0.3)',
+                borderRadius: '2px',
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '11px',
+                color: '#ff6a00'
+              }}
+            >
+              <Activity size={12} />
+              STAGE {currentStage.number} / 05
+            </div>
           </div>
         </div>
 
