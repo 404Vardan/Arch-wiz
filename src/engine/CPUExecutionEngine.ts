@@ -162,12 +162,16 @@ export class CPUExecutionEngine {
         this.state.pc = 0x0040;
         this.state.ir = this.instruction.assembly;
         this.state.registers.x3 = 0;
+        this.state.aluInputA = 0;
+        this.state.aluInputB = 0;
+        this.state.aluResult = 0;
+        this.state.flags = { zero: false, negative: false, carry: false, overflow: false };
         this.state.activeMicroOps = [
-          'MAR ← [PC] (0x0040)',
-          'Memory Read: M[0x0040] → MBR',
-          'IR ← MBR (0x002081B3)',
-          'PC ← PC + 4 (0x0044)',
-          'FETCH COMPLETE'
+          'PC (0x0040) asserts address on Address Bus',
+          'Memory Read: M[0x0040] retrieved (0x002081B3)',
+          'Instruction Bus transfers word to IR',
+          'IR latches instruction: ADD x3, x1, x2',
+          'FETCH COMPLETE // ALU in Standby'
         ];
         this.state.componentStates = {
           pc: 'SENDING',
@@ -177,13 +181,32 @@ export class CPUExecutionEngine {
           regFile: 'IDLE',
           alu: 'IDLE'
         };
-        this.state.controlSignals.regWrite = false;
+        this.state.controlSignals = {
+          opcode: '0110011',
+          funct3: '000',
+          funct7: '0000000',
+          rd: 'x3',
+          rs1: 'x1',
+          rs2: 'x2',
+          aluOp: 'STANDBY',
+          regWrite: false,
+          aluSrc: false,
+          memRead: true,
+          memWrite: false,
+          memToReg: false,
+          branch: false
+        };
         this.state.isComplete = false;
         break;
 
       case 1: // DECODE
         this.state.currentStage = 'DECODE';
         this.state.pc = 0x0044;
+        this.state.registers.x3 = 0;
+        this.state.aluInputA = 0;
+        this.state.aluInputB = 0;
+        this.state.aluResult = 0;
+        this.state.flags = { zero: false, negative: false, carry: false, overflow: false };
         this.state.controlSignals = {
           opcode: '0110011',
           funct3: '000',
@@ -200,11 +223,11 @@ export class CPUExecutionEngine {
           branch: false
         };
         this.state.activeMicroOps = [
-          'Decode Opcode: 0110011 (RV32I OP / R-Type)',
-          'Decode funct3: 000 (ADD) & funct7: 0000000',
+          'IR dispatches opcode 0110011 (RV32I OP / R-Type) to Control Unit',
+          'Control Unit decodes funct3: 000 & funct7: 0000000 → ADD operation',
           `Extract Source Registers: rs1 = ${this.instruction.rs1Name}, rs2 = ${this.instruction.rs2Name}`,
           `Extract Destination Register: rd = ${this.instruction.rdName}`,
-          'Assert Control Lines: ALUOp=ADD, RegWrite=1'
+          'Assert Control Lines: ALUOp = ADD, RegWrite = 1 (pending writeback)'
         ];
         this.state.componentStates = {
           pc: 'COMPLETE',
@@ -219,14 +242,17 @@ export class CPUExecutionEngine {
 
       case 2: // REGISTER_READ
         this.state.currentStage = 'REGISTER_READ';
+        this.state.registers.x3 = 0; // x3 is STRICTLY 0 before ALU execution and writeback!
         this.state.aluInputA = this.state.registers[this.instruction.rs1Name] ?? 20;
         this.state.aluInputB = this.state.registers[this.instruction.rs2Name] ?? 22;
+        this.state.aluResult = 0; // Result does not exist until ALU executes
+        this.state.flags = { zero: false, negative: false, carry: false, overflow: false };
         this.state.activeMicroOps = [
-          `Read Address 1 ← ${this.instruction.rs1Name} (holds ${this.state.aluInputA})`,
-          `Read Address 2 ← ${this.instruction.rs2Name} (holds ${this.state.aluInputB})`,
-          `Operand A Latch ← ${this.state.aluInputA}`,
-          `Operand B Latch ← ${this.state.aluInputB}`,
-          'ALU Operand Latches Primed'
+          `Register File Read Port 1 reads ${this.instruction.rs1Name} = ${this.state.aluInputA}`,
+          `Register File Read Port 2 reads ${this.instruction.rs2Name} = ${this.state.aluInputB}`,
+          `Operand A (20) & Operand B (22) travel along operand buses to ALU`,
+          'ALU input latches primed // Destination x3 remains at 0',
+          'REGISTER READ COMPLETE'
         ];
         this.state.componentStates = {
           pc: 'IDLE',
@@ -241,7 +267,10 @@ export class CPUExecutionEngine {
 
       case 3: // EXECUTE
         this.state.currentStage = 'EXECUTE';
-        this.state.aluResult = this.state.aluInputA + this.state.aluInputB;
+        this.state.registers.x3 = 0; // x3 is STILL 0 until Write Back!
+        this.state.aluInputA = 20;
+        this.state.aluInputB = 22;
+        this.state.aluResult = this.state.aluInputA + this.state.aluInputB; // 42
         this.state.flags = {
           zero: this.state.aluResult === 0,
           negative: this.state.aluResult < 0,
@@ -251,15 +280,16 @@ export class CPUExecutionEngine {
         this.state.activeMicroOps = [
           `ALU Core Operation: ${this.state.aluInputA} + ${this.state.aluInputB}`,
           `32-bit Parallel Adder Output: ${this.state.aluResult} (0x0000002A)`,
-          'Condition Flags: Z=0, N=0, C=0, V=0',
-          'Dispatched Result Packet onto Write-Back Bus'
+          'Derived ALU Status: Z=0, N=0, C=0, V=0 (Non-architectural educational flags)',
+          'Dispatched Result Packet 42 onto Write-Back Bus',
+          'EXECUTE COMPLETE // Register x3 still holds 0'
         ];
         this.state.componentStates = {
           pc: 'IDLE',
           memory: 'IDLE',
           ir: 'IDLE',
           cu: 'IDLE',
-          regFile: 'RECEIVING',
+          regFile: 'IDLE',
           alu: 'PROCESSING'
         };
         this.state.isComplete = false;
@@ -267,13 +297,16 @@ export class CPUExecutionEngine {
 
       case 4: // WRITE_BACK
         this.state.currentStage = 'WRITE_BACK';
-        this.state.registers[this.instruction.rdName] = this.state.aluResult || 42;
+        this.state.aluInputA = 20;
+        this.state.aluInputB = 22;
+        this.state.aluResult = 42;
+        this.state.registers[this.instruction.rdName] = 42; // x3 becomes 42 only during WRITE BACK!
         this.state.activeMicroOps = [
-          `Write Destination ← ${this.instruction.rdName}`,
-          `Write Data Bus ← ${this.state.registers[this.instruction.rdName]}`,
-          'Assert RegWrite = 1',
-          `${this.instruction.rdName} committed: 0 ──► ${this.state.registers[this.instruction.rdName]}`,
-          `✓ INSTRUCTION COMPLETE: ${this.instruction.rdName} = ${this.state.registers[this.instruction.rdName]}`
+          `Write-Back Bus delivers result 42 to Register File Write Port`,
+          'RegWrite asserted (1) for destination register rd = x3',
+          `${this.instruction.rdName} latched: 0 ──► ${this.state.registers[this.instruction.rdName]}`,
+          `✓ INSTRUCTION COMPLETE: ${this.instruction.rdName} = ${this.state.registers[this.instruction.rdName]}`,
+          'All micro-operations committed successfully'
         ];
         this.state.componentStates = {
           pc: 'IDLE',

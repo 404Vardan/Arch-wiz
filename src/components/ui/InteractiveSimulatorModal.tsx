@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Play, Pause, SkipForward, RotateCcw, Cpu, Terminal, Layers, ArrowRight, Code, Database, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { audio } from '../../utils/audio';
 
@@ -344,6 +344,8 @@ function parseCustomAssembly(source: string): { instructions: ProgramInstruction
       return parseInt(val, 10);
     };
 
+    const currIndex = instructions.length;
+
     if (op === 'ADD' || op === 'SUB' || op === 'AND' || op === 'OR' || op === 'SLT') {
       const rd = parseReg(parts[1]);
       const rs1 = parseReg(parts[2]);
@@ -352,7 +354,7 @@ function parseCustomAssembly(source: string): { instructions: ProgramInstruction
         return { instructions: [], error: `Line ${i + 1}: Invalid register syntax for ${op}. Use format: ${op} Rd, Rs1, Rs2 (e.g. ${op} R3, R1, R2)` };
       }
       instructions.push({
-        pc: instructions.length,
+        pc: currIndex,
         asm: `${op} R${rd}, R${rs1}, R${rs2}`,
         comment: `${op} operation → R${rd}`,
         execute: (r, m) => {
@@ -364,7 +366,7 @@ function parseCustomAssembly(source: string): { instructions: ProgramInstruction
           if (op === 'OR') val = r[rs1] | r[rs2];
           if (op === 'SLT') val = r[rs1] < r[rs2] ? 1 : 0;
           if (rd !== 0) nextR[rd] = val; // R0 is hardwired to 0
-          return { regs: nextR, mem: m, nextPc: i + 1, modifiedReg: rd !== 0 ? rd : undefined };
+          return { regs: nextR, mem: m, nextPc: currIndex + 1, modifiedReg: rd !== 0 ? rd : undefined };
         }
       });
     } else if (op === 'ADDI' || op === 'SUBI') {
@@ -375,14 +377,14 @@ function parseCustomAssembly(source: string): { instructions: ProgramInstruction
         return { instructions: [], error: `Line ${i + 1}: Invalid immediate syntax for ${op}. Use format: ${op} Rd, Rs1, Imm (e.g. ${op} R1, R0, 10)` };
       }
       instructions.push({
-        pc: instructions.length,
+        pc: currIndex,
         asm: `${op} R${rd}, R${rs1}, ${parts[3]}`,
         comment: `${op} immediate value ${imm} → R${rd}`,
         execute: (r, m) => {
           const nextR = [...r];
           let val = op === 'ADDI' ? r[rs1] + imm : r[rs1] - imm;
           if (rd !== 0) nextR[rd] = val;
-          return { regs: nextR, mem: m, nextPc: i + 1, modifiedReg: rd !== 0 ? rd : undefined };
+          return { regs: nextR, mem: m, nextPc: currIndex + 1, modifiedReg: rd !== 0 ? rd : undefined };
         }
       });
     } else if (op === 'LOAD') {
@@ -392,14 +394,14 @@ function parseCustomAssembly(source: string): { instructions: ProgramInstruction
         return { instructions: [], error: `Line ${i + 1}: Invalid syntax for LOAD. Format: LOAD Rd, 0x1000` };
       }
       instructions.push({
-        pc: instructions.length,
+        pc: currIndex,
         asm: `LOAD R${rd}, ${addrStr}`,
         comment: `Read Mem[${addrStr}] → R${rd}`,
         execute: (r, m) => {
           const nextR = [...r];
           const val = m[addrStr] !== undefined ? m[addrStr] : 50;
           if (rd !== 0) nextR[rd] = val;
-          return { regs: nextR, mem: m, nextPc: i + 1, modifiedReg: rd !== 0 ? rd : undefined };
+          return { regs: nextR, mem: m, nextPc: currIndex + 1, modifiedReg: rd !== 0 ? rd : undefined };
         }
       });
     } else if (op === 'STORE') {
@@ -409,12 +411,12 @@ function parseCustomAssembly(source: string): { instructions: ProgramInstruction
         return { instructions: [], error: `Line ${i + 1}: Invalid syntax for STORE. Format: STORE Rs, 0x1000` };
       }
       instructions.push({
-        pc: instructions.length,
+        pc: currIndex,
         asm: `STORE R${rs}, ${addrStr}`,
         comment: `Write R${rs} → Mem[${addrStr}]`,
         execute: (r, m) => {
           const nextM = { ...m, [addrStr]: r[rs] };
-          return { regs: r, mem: nextM, nextPc: i + 1 };
+          return { regs: r, mem: nextM, nextPc: currIndex + 1 };
         }
       });
     } else if (op === 'BEQ' || op === 'BNE') {
@@ -425,7 +427,7 @@ function parseCustomAssembly(source: string): { instructions: ProgramInstruction
         return { instructions: [], error: `Line ${i + 1}: Invalid syntax for ${op}. Format: ${op} Rs1, Rs2, TargetIndex (e.g. ${op} R1, R2, 0)` };
       }
       instructions.push({
-        pc: instructions.length,
+        pc: currIndex,
         asm: `${op} R${rs1}, R${rs2}, ${parts[3]}`,
         comment: `Branch to line ${target} if ${op === 'BEQ' ? 'R' + rs1 + ' == R' + rs2 : 'R' + rs1 + ' != R' + rs2}`,
         execute: (r, m) => {
@@ -433,16 +435,16 @@ function parseCustomAssembly(source: string): { instructions: ProgramInstruction
           return {
             regs: r,
             mem: m,
-            nextPc: cond ? target : i + 1
+            nextPc: cond ? target : currIndex + 1
           };
         }
       });
     } else if (op === 'NOP') {
       instructions.push({
-        pc: instructions.length,
+        pc: currIndex,
         asm: 'NOP',
         comment: 'No operation (pipeline stall bubble)',
-        execute: (r, m) => ({ regs: r, mem: m, nextPc: i + 1 })
+        execute: (r, m) => ({ regs: r, mem: m, nextPc: currIndex + 1 })
       });
     } else {
       return { instructions: [], error: `Line ${i + 1}: Unsupported opcode '${op}'. Supported: ADD, SUB, ADDI, SUBI, AND, OR, SLT, LOAD, STORE, BEQ, BNE, NOP` };
@@ -542,39 +544,58 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
     ? customInstructions
     : PROGRAM_PRESETS[activeProgramId]?.instructions || [];
 
+  // Maintain fresh state ref to avoid interval thrashing and state updater races
+  const programStateRef = useRef({
+    registers,
+    memory,
+    programPc,
+    currentInstructions
+  });
+  programStateRef.current = {
+    registers,
+    memory,
+    programPc,
+    currentInstructions
+  };
+
   // Autoplay loop for Multi-Instruction Program
   useEffect(() => {
     if (!isProgramRunning) return;
 
     const timer = setInterval(() => {
-      setProgramPc((currentPc) => {
-        if (currentPc >= currentInstructions.length) {
-          setIsProgramRunning(false);
-          audio.playAluChime();
-          return currentPc;
-        }
-        const inst = currentInstructions[currentPc];
-        audio.playStep();
-        setCycleCount((c) => c + 1);
+      const {
+        registers: currRegs,
+        memory: currMem,
+        programPc: currPc,
+        currentInstructions: currInsts
+      } = programStateRef.current;
 
-        // Single deterministic state transition: old CPU state -> instruction -> new CPU state
-        const res = inst.execute(registers, memory);
-        setRegisters(res.regs);
-        setMemory(res.mem);
-        if (res.modifiedReg !== undefined) {
-          setLastModifiedReg(res.modifiedReg);
-        }
+      if (currPc >= currInsts.length) {
+        setIsProgramRunning(false);
+        audio.playAluChime();
+        return;
+      }
 
-        if (res.nextPc >= currentInstructions.length) {
-          setIsProgramRunning(false);
-          audio.playAluChime();
-        }
-        return res.nextPc;
-      });
+      const inst = currInsts[currPc];
+      audio.playStep();
+      setCycleCount((c) => c + 1);
+
+      const res = inst.execute(currRegs, currMem);
+      setRegisters(res.regs);
+      setMemory(res.mem);
+      if (res.modifiedReg !== undefined) {
+        setLastModifiedReg(res.modifiedReg);
+      }
+      setProgramPc(res.nextPc);
+
+      if (res.nextPc >= currInsts.length) {
+        setIsProgramRunning(false);
+        audio.playAluChime();
+      }
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isProgramRunning, activeProgramId, currentInstructions, registers, memory]);
+  }, [isProgramRunning]);
 
   if (!isOpen) return null;
 
@@ -637,19 +658,28 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
   const funct7 = currentDef.funct7 || '0000000';
 
   let machineCode32 = '';
+  let imm12Str = '';
+  let imm7Str = '';
+  let imm5Str = '';
+
   if (currentDef.format === 'I') {
-    const imm12 = (r2Val & 0xFFF).toString(2).padStart(12, '0');
-    machineCode32 = `${imm12}${rs1Binary}${funct3}${rdBinary}${opcode}`;
+    const rawImm = selectedInst === 'SUBI' ? -r2Val : r2Val;
+    imm12Str = ((rawImm >>> 0) & 0xFFF).toString(2).padStart(12, '0');
+    machineCode32 = `${imm12Str}${rs1Binary}${funct3}${rdBinary}${opcode}`;
   } else if (currentDef.format === 'S') {
-    const imm12 = (r2Val & 0xFFF).toString(2).padStart(12, '0');
-    machineCode32 = `${imm12.slice(0, 7)}${rs2Binary}${rs1Binary}${funct3}${imm12.slice(7)}${opcode}`;
+    const imm12 = ((r2Val >>> 0) & 0xFFF).toString(2).padStart(12, '0');
+    imm7Str = imm12.slice(0, 7);
+    imm5Str = imm12.slice(7);
+    machineCode32 = `${imm7Str}${rs2Binary}${rs1Binary}${funct3}${imm5Str}${opcode}`;
   } else if (currentDef.format === 'B') {
-    const imm12 = (8 & 0xFFF).toString(2).padStart(12, '0');
-    machineCode32 = `${imm12.slice(0, 7)}${rs2Binary}${rs1Binary}${funct3}${imm12.slice(7)}${opcode}`;
+    const imm12 = ((8 >>> 0) & 0xFFF).toString(2).padStart(12, '0');
+    imm7Str = imm12.slice(0, 7);
+    imm5Str = imm12.slice(7);
+    machineCode32 = `${imm7Str}${rs2Binary}${rs1Binary}${funct3}${imm5Str}${opcode}`;
   } else {
     machineCode32 = `${funct7}${rs2Binary}${rs1Binary}${funct3}${rdBinary}${opcode}`;
   }
-  const hexCode = '0x' + parseInt(machineCode32, 2).toString(16).toUpperCase().padStart(8, '0');
+  const hexCode = '0x' + (parseInt(machineCode32, 2) >>> 0).toString(16).toUpperCase().padStart(8, '0');
 
   const singleStages = [
     {
@@ -1131,37 +1161,167 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '7fr 5fr 5fr 3fr 5fr 7fr',
-                  gap: '4px',
+                  gridTemplateColumns:
+                    currentDef.format === 'I'
+                      ? 'minmax(0, 1.8fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr)'
+                      : 'repeat(6, minmax(0, 1fr))',
+                  gap: '6px',
                   textAlign: 'center',
                   fontFamily: "'JetBrains Mono', monospace",
                   fontSize: '11px'
                 }}
               >
-                <div style={{ background: '#1c1f26', padding: '6px', borderRadius: '2px' }}>
-                  <div style={{ color: '#8b949e', fontSize: '9px' }}>funct7 [31:25]</div>
-                  <div style={{ color: '#f2f4f7', fontWeight: 600 }}>{funct7}</div>
-                </div>
-                <div style={{ background: '#1c1f26', padding: '6px', borderRadius: '2px' }}>
-                  <div style={{ color: '#8b949e', fontSize: '9px' }}>rs2 [24:20]</div>
-                  <div style={{ color: '#38bdf8', fontWeight: 600 }}>{rs2Binary}</div>
-                </div>
-                <div style={{ background: '#1c1f26', padding: '6px', borderRadius: '2px' }}>
-                  <div style={{ color: '#8b949e', fontSize: '9px' }}>rs1 [19:15]</div>
-                  <div style={{ color: '#38bdf8', fontWeight: 600 }}>{rs1Binary}</div>
-                </div>
-                <div style={{ background: '#1c1f26', padding: '6px', borderRadius: '2px' }}>
-                  <div style={{ color: '#8b949e', fontSize: '9px' }}>funct3 [14:12]</div>
-                  <div style={{ color: '#e5a93c', fontWeight: 600 }}>{funct3}</div>
-                </div>
-                <div style={{ background: '#1c1f26', padding: '6px', borderRadius: '2px' }}>
-                  <div style={{ color: '#8b949e', fontSize: '9px' }}>rd [11:7]</div>
-                  <div style={{ color: '#ff6a00', fontWeight: 600 }}>{rdBinary}</div>
-                </div>
-                <div style={{ background: '#1c1f26', padding: '6px', borderRadius: '2px' }}>
-                  <div style={{ color: '#8b949e', fontSize: '9px' }}>opcode [6:0]</div>
-                  <div style={{ color: '#ef4444', fontWeight: 600 }}>{opcode}</div>
-                </div>
+                {currentDef.format === 'I' ? (
+                  <>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        imm[11:0] [31:20]
+                      </div>
+                      <div style={{ color: '#fbbf24', fontWeight: 600, fontSize: '10px', wordBreak: 'break-all' }}>{imm12Str}</div>
+                    </div>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        rs1 [19:15]
+                      </div>
+                      <div style={{ color: '#38bdf8', fontWeight: 600 }}>{rs1Binary}</div>
+                    </div>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        funct3 [14:12]
+                      </div>
+                      <div style={{ color: '#e5a93c', fontWeight: 600 }}>{funct3}</div>
+                    </div>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        rd [11:7]
+                      </div>
+                      <div style={{ color: '#ff6a00', fontWeight: 600 }}>{rdBinary}</div>
+                    </div>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        opcode [6:0]
+                      </div>
+                      <div style={{ color: '#ef4444', fontWeight: 600 }}>{opcode}</div>
+                    </div>
+                  </>
+                ) : currentDef.format === 'S' ? (
+                  <>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        imm[11:5] [31:25]
+                      </div>
+                      <div style={{ color: '#fbbf24', fontWeight: 600 }}>{imm7Str}</div>
+                    </div>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        rs2 [24:20]
+                      </div>
+                      <div style={{ color: '#38bdf8', fontWeight: 600 }}>{rs2Binary}</div>
+                    </div>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        rs1 [19:15]
+                      </div>
+                      <div style={{ color: '#38bdf8', fontWeight: 600 }}>{rs1Binary}</div>
+                    </div>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        funct3 [14:12]
+                      </div>
+                      <div style={{ color: '#e5a93c', fontWeight: 600 }}>{funct3}</div>
+                    </div>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        imm[4:0] [11:7]
+                      </div>
+                      <div style={{ color: '#fbbf24', fontWeight: 600 }}>{imm5Str}</div>
+                    </div>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        opcode [6:0]
+                      </div>
+                      <div style={{ color: '#ef4444', fontWeight: 600 }}>{opcode}</div>
+                    </div>
+                  </>
+                ) : currentDef.format === 'B' ? (
+                  <>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        imm[12|10:5] [31:25]
+                      </div>
+                      <div style={{ color: '#fbbf24', fontWeight: 600 }}>{imm7Str}</div>
+                    </div>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        rs2 [24:20]
+                      </div>
+                      <div style={{ color: '#38bdf8', fontWeight: 600 }}>{rs2Binary}</div>
+                    </div>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        rs1 [19:15]
+                      </div>
+                      <div style={{ color: '#38bdf8', fontWeight: 600 }}>{rs1Binary}</div>
+                    </div>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        funct3 [14:12]
+                      </div>
+                      <div style={{ color: '#e5a93c', fontWeight: 600 }}>{funct3}</div>
+                    </div>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        imm[4:1|11] [11:7]
+                      </div>
+                      <div style={{ color: '#fbbf24', fontWeight: 600 }}>{imm5Str}</div>
+                    </div>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        opcode [6:0]
+                      </div>
+                      <div style={{ color: '#ef4444', fontWeight: 600 }}>{opcode}</div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        funct7 [31:25]
+                      </div>
+                      <div style={{ color: '#f2f4f7', fontWeight: 600 }}>{funct7}</div>
+                    </div>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        rs2 [24:20]
+                      </div>
+                      <div style={{ color: '#38bdf8', fontWeight: 600 }}>{rs2Binary}</div>
+                    </div>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        rs1 [19:15]
+                      </div>
+                      <div style={{ color: '#38bdf8', fontWeight: 600 }}>{rs1Binary}</div>
+                    </div>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        funct3 [14:12]
+                      </div>
+                      <div style={{ color: '#e5a93c', fontWeight: 600 }}>{funct3}</div>
+                    </div>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        rd [11:7]
+                      </div>
+                      <div style={{ color: '#ff6a00', fontWeight: 600 }}>{rdBinary}</div>
+                    </div>
+                    <div style={{ background: '#1c1f26', padding: '6px 4px', borderRadius: '2px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ color: '#8b949e', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        opcode [6:0]
+                      </div>
+                      <div style={{ color: '#ef4444', fontWeight: 600 }}>{opcode}</div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -1294,6 +1454,9 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
                   <button
                     onClick={() => {
                       audio.playClick();
+                      if (!isAutoPlaying && stageIndex >= 4) {
+                        setStageIndex(0);
+                      }
                       setIsAutoPlaying(!isAutoPlaying);
                     }}
                     className="btn-primary"
@@ -1394,6 +1557,9 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
                 <button
                   onClick={() => {
                     audio.playClick();
+                    if (!isProgramRunning && programPc >= currentInstructions.length) {
+                      handleProgramReset();
+                    }
                     setIsProgramRunning(!isProgramRunning);
                   }}
                   className="btn-primary"
@@ -1527,7 +1693,7 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: '1.2fr 1fr',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
                 gap: '16px'
               }}
             >
@@ -1540,7 +1706,8 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
                   padding: '16px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '8px'
+                  gap: '8px',
+                  minWidth: 0
                 }}
               >
                 <div
@@ -1581,15 +1748,17 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
                         borderRadius: '3px',
                         fontFamily: "'JetBrains Mono', monospace",
                         fontSize: '12px',
-                        transition: 'all 0.15s ease'
+                        transition: 'all 0.15s ease',
+                        gap: '10px'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, overflow: 'hidden' }}>
                         <span
                           style={{
                             color: isCurrent ? '#ff6a00' : '#57606a',
                             fontSize: '11px',
-                            minWidth: '24px'
+                            minWidth: '24px',
+                            flexShrink: 0
                           }}
                         >
                           {isCurrent ? '►' : `0${idx}`}
@@ -1597,7 +1766,10 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
                         <span
                           style={{
                             color: isCurrent ? '#ffffff' : '#9aa3af',
-                            fontWeight: isCurrent ? 700 : 400
+                            fontWeight: isCurrent ? 700 : 400,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
                           }}
                         >
                           {inst.asm}
@@ -1606,7 +1778,9 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
                       <span
                         style={{
                           color: isCurrent ? '#ff6a00' : '#6e7681',
-                          fontSize: '11px'
+                          fontSize: '11px',
+                          flexShrink: 0,
+                          textAlign: 'right'
                         }}
                       >
                         {inst.comment}
@@ -1636,7 +1810,7 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
               </div>
 
               {/* Right Column: 16-Register Bank & Data Memory */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', minWidth: 0 }}>
                 {/* 16-Register Bank (R0 -> R15) */}
                 <div
                   style={{
@@ -1657,8 +1831,8 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
                       color: '#ff6a00'
                     }}
                   >
-                    <span>16-REGISTER BANK (R0 - R15)</span>
-                    <span style={{ fontSize: '9px', color: '#8b949e' }}>R0 = HARDWIRED 0</span>
+                    <span>16-REGISTER BANK (x0 - x15)</span>
+                    <span style={{ fontSize: '9px', color: '#8b949e' }}>x0 = HARDWIRED 0</span>
                   </div>
 
                   <div
@@ -1680,11 +1854,13 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
                             borderRadius: '2px',
                             fontFamily: "'JetBrains Mono', monospace",
                             fontSize: '11px',
+                            minWidth: 0,
+                            overflow: 'hidden',
                             transition: 'all 0.2s ease'
                           }}
                         >
-                          <div style={{ color: '#8b949e', fontSize: '9px' }}>R{rIdx}</div>
-                          <div style={{ color: isModified ? '#ff6a00' : '#ffffff', fontWeight: 600 }}>
+                          <div style={{ color: '#8b949e', fontSize: '9px' }}>x{rIdx}</div>
+                          <div style={{ color: isModified ? '#ff6a00' : '#ffffff', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {val}
                           </div>
                         </div>

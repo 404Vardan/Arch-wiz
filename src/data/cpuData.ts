@@ -60,7 +60,7 @@ export const CPU_COMPONENTS: Record<string, CPUComponentData> = {
     name: 'REGISTER FILE',
     fullName: 'REGISTER FILE',
     category: 'Storage & Datapath',
-    description: 'Stores temporary operands and processor registers (R0–R7) used during instruction execution.',
+    description: 'Provides fast operand storage and receives write-back results across 32 registers (x0–x31), with x0 hardwired to zero.',
     position: [-0.9, 0.12, 0.6],
     explodedPosition: [-1.4, 0.9, 0.7],
     size: [1.2, 0.25, 1.1],

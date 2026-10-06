@@ -7,13 +7,15 @@ interface SimulatorMemoryProps {
   lifecycleState: ComponentLifecycleState;
   isActive: boolean;
   instructionWord: string;
+  onInspect?: () => void;
 }
 
 export const SimulatorMemory: React.FC<SimulatorMemoryProps> = ({
   position,
   lifecycleState,
   isActive,
-  instructionWord
+  instructionWord,
+  onInspect
 }) => {
   const stateColors: Record<ComponentLifecycleState, string> = {
     IDLE: '#64748b',
@@ -26,10 +28,10 @@ export const SimulatorMemory: React.FC<SimulatorMemoryProps> = ({
   const activeColor = stateColors[lifecycleState] || '#a855f7';
 
   return (
-    <group position={position}>
+    <group position={position} onClick={onInspect}>
       {/* 3D Silicon Housing */}
       <mesh position={[0, 0, 0]} castShadow receiveShadow>
-        <boxGeometry args={[3.2, 1.6, 0.5]} />
+        <boxGeometry args={[3.3, 1.6, 0.5]} />
         <meshStandardMaterial
           color="#151923"
           metalness={0.7}
@@ -41,37 +43,39 @@ export const SimulatorMemory: React.FC<SimulatorMemoryProps> = ({
 
       {/* Top Gold Memory Bus Array */}
       <mesh position={[0, 0.82, 0]}>
-        <boxGeometry args={[3.0, 0.05, 0.45]} />
+        <boxGeometry args={[3.1, 0.05, 0.45]} />
         <meshStandardMaterial color="#fbbf24" metalness={0.9} roughness={0.1} />
       </mesh>
 
       {/* Input Port Connector (Left side from PC) */}
-      <mesh position={[-1.65, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+      <mesh position={[-1.68, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.08, 0.08, 0.2, 16]} />
         <meshStandardMaterial color="#38bdf8" emissive="#38bdf8" emissiveIntensity={0.8} />
       </mesh>
 
       {/* Output Port Connector (Right side to IR) */}
-      <mesh position={[1.65, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+      <mesh position={[1.68, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.08, 0.08, 0.2, 16]} />
         <meshStandardMaterial color="#a855f7" emissive="#a855f7" emissiveIntensity={0.8} />
       </mesh>
 
       {/* High-Contrast Technical Label Overlay */}
-      <Html position={[0, 0, 0.28]} center transform distanceFactor={9}>
+      <Html position={[0, 0, 0.28]} center transform distanceFactor={9} zIndexRange={[10, 40]}>
         <div
+          onClick={onInspect}
           style={{
             width: '260px',
-            background: 'rgba(10, 12, 18, 0.94)',
+            background: 'rgba(10, 12, 18, 0.95)',
             border: `1.5px solid ${isActive ? activeColor : 'rgba(255, 255, 255, 0.15)'}`,
             borderRadius: '4px',
             padding: '8px 12px',
             boxShadow: isActive ? `0 0 16px ${activeColor}40` : 'none',
             display: 'flex',
             flexDirection: 'column',
-            gap: '4px',
+            gap: '3px',
             userSelect: 'none',
-            pointerEvents: 'none'
+            cursor: onInspect ? 'pointer' : 'default',
+            pointerEvents: onInspect ? 'auto' : 'none'
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -104,14 +108,14 @@ export const SimulatorMemory: React.FC<SimulatorMemoryProps> = ({
           <div
             style={{
               fontFamily: "'JetBrains Mono', monospace",
-              fontSize: '12px',
+              fontSize: '11.5px',
               fontWeight: 700,
               color: '#c084fc',
               textAlign: 'center',
               background: 'rgba(0, 0, 0, 0.5)',
-              padding: '4px 6px',
+              padding: '3px 6px',
               borderRadius: '2px',
-              marginTop: '2px'
+              marginTop: '1px'
             }}
           >
             M[0x0040] ──► 0x002081B3
@@ -119,15 +123,14 @@ export const SimulatorMemory: React.FC<SimulatorMemoryProps> = ({
 
           <div
             style={{
-              display: 'flex',
-              justifyContent: 'space-between',
               fontFamily: "'JetBrains Mono', monospace",
               fontSize: '8px',
-              color: '#94a3b8'
+              color: '#94a3b8',
+              textAlign: 'center',
+              lineHeight: '1.2'
             }}
           >
-            <span>ADDR BUS: 0x0040</span>
-            <span>DATA BUS: {instructionWord}</span>
+            Stores instructions and data accessed by the processor.
           </div>
         </div>
       </Html>

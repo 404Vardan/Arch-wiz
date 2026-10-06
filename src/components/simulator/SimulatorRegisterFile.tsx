@@ -9,6 +9,8 @@ interface SimulatorRegisterFileProps {
   registers: Record<string, number>;
   sourceRegs: { rs1: string; rs2: string; rd: string };
   isWriteBack: boolean;
+  stageIndex?: number;
+  onInspect?: () => void;
 }
 
 export const SimulatorRegisterFile: React.FC<SimulatorRegisterFileProps> = ({
@@ -17,7 +19,9 @@ export const SimulatorRegisterFile: React.FC<SimulatorRegisterFileProps> = ({
   isActive,
   registers,
   sourceRegs,
-  isWriteBack
+  isWriteBack,
+  stageIndex = 0,
+  onInspect
 }) => {
   const stateColors: Record<ComponentLifecycleState, string> = {
     IDLE: '#64748b',
@@ -28,9 +32,10 @@ export const SimulatorRegisterFile: React.FC<SimulatorRegisterFileProps> = ({
   };
 
   const activeColor = stateColors[lifecycleState] || '#ffd700';
+  const isRegRead = stageIndex === 2;
 
   return (
-    <group position={position}>
+    <group position={position} onClick={onInspect}>
       {/* 3D Silicon Housing */}
       <mesh position={[0, 0, 0]} castShadow receiveShadow>
         <boxGeometry args={[3.8, 2.4, 0.5]} />
@@ -61,27 +66,35 @@ export const SimulatorRegisterFile: React.FC<SimulatorRegisterFileProps> = ({
         <meshStandardMaterial color="#38bdf8" emissive="#38bdf8" emissiveIntensity={0.8} />
       </mesh>
 
-      {/* Write Port Connector (Top-Left from ALU Writeback bus) */}
-      <mesh position={[-1.95, 0.6, 0]} rotation={[0, 0, Math.PI / 2]}>
+      {/* Write Port Connector (Left side from ALU Writeback bus) */}
+      <mesh position={[-1.95, 0.3, 0]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.08, 0.08, 0.2, 16]} />
         <meshStandardMaterial color="#4ade80" emissive="#4ade80" emissiveIntensity={0.8} />
       </mesh>
 
+      {/* Control Port Connector (Right side from CU) */}
+      <mesh position={[1.95, 0.1, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.08, 0.08, 0.2, 16]} />
+        <meshStandardMaterial color="#38bdf8" emissive="#38bdf8" emissiveIntensity={0.8} />
+      </mesh>
+
       {/* High-Contrast Technical Label Overlay */}
-      <Html position={[0, 0, 0.28]} center transform distanceFactor={9}>
+      <Html position={[0, 0, 0.28]} center transform distanceFactor={9} zIndexRange={[10, 40]}>
         <div
+          onClick={onInspect}
           style={{
             width: '320px',
-            background: 'rgba(10, 12, 18, 0.94)',
+            background: 'rgba(10, 12, 18, 0.95)',
             border: `1.5px solid ${isActive ? activeColor : 'rgba(255, 255, 255, 0.15)'}`,
             borderRadius: '4px',
             padding: '8px 12px',
             boxShadow: isActive ? `0 0 16px ${activeColor}40` : 'none',
             display: 'flex',
             flexDirection: 'column',
-            gap: '6px',
+            gap: '4px',
             userSelect: 'none',
-            pointerEvents: 'none'
+            cursor: onInspect ? 'pointer' : 'default',
+            pointerEvents: onInspect ? 'auto' : 'none'
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -130,11 +143,12 @@ export const SimulatorRegisterFile: React.FC<SimulatorRegisterFileProps> = ({
             {/* x1 (SRC 1) */}
             <div
               style={{
-                background: 'rgba(255, 215, 0, 0.12)',
-                border: '1px solid rgba(255, 215, 0, 0.4)',
+                background: isRegRead ? 'rgba(255, 215, 0, 0.25)' : 'rgba(255, 215, 0, 0.12)',
+                border: `1px solid ${isRegRead ? '#ffd700' : 'rgba(255, 215, 0, 0.4)'}`,
                 padding: '4px',
                 borderRadius: '2px',
-                textAlign: 'center'
+                textAlign: 'center',
+                boxShadow: isRegRead ? '0 0 8px rgba(255, 215, 0, 0.5)' : 'none'
               }}
             >
               <div style={{ color: '#ffd700', fontSize: '9px', fontWeight: 600 }}>x1 [SRC 1]</div>
@@ -144,11 +158,12 @@ export const SimulatorRegisterFile: React.FC<SimulatorRegisterFileProps> = ({
             {/* x2 (SRC 2) */}
             <div
               style={{
-                background: 'rgba(56, 189, 248, 0.12)',
-                border: '1px solid rgba(56, 189, 248, 0.4)',
+                background: isRegRead ? 'rgba(56, 189, 248, 0.25)' : 'rgba(56, 189, 248, 0.12)',
+                border: `1px solid ${isRegRead ? '#38bdf8' : 'rgba(56, 189, 248, 0.4)'}`,
                 padding: '4px',
                 borderRadius: '2px',
-                textAlign: 'center'
+                textAlign: 'center',
+                boxShadow: isRegRead ? '0 0 8px rgba(56, 189, 248, 0.5)' : 'none'
               }}
             >
               <div style={{ color: '#38bdf8', fontSize: '9px', fontWeight: 600 }}>x2 [SRC 2]</div>
@@ -158,11 +173,12 @@ export const SimulatorRegisterFile: React.FC<SimulatorRegisterFileProps> = ({
             {/* x3 (DEST) */}
             <div
               style={{
-                background: isWriteBack ? 'rgba(74, 222, 128, 0.2)' : 'rgba(255, 106, 0, 0.12)',
+                background: isWriteBack ? 'rgba(74, 222, 128, 0.25)' : 'rgba(255, 106, 0, 0.12)',
                 border: `1px solid ${isWriteBack ? '#4ade80' : 'rgba(255, 106, 0, 0.4)'}`,
                 padding: '4px',
                 borderRadius: '2px',
                 textAlign: 'center',
+                boxShadow: isWriteBack ? '0 0 12px rgba(74, 222, 128, 0.6)' : 'none',
                 transition: 'all 0.3s ease'
               }}
             >
@@ -190,14 +206,26 @@ export const SimulatorRegisterFile: React.FC<SimulatorRegisterFileProps> = ({
               fontSize: '8px',
               color: '#94a3b8',
               borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-              paddingTop: '4px'
+              paddingTop: '3px'
             }}
           >
             <span>PORT 1: x1 ──► 20</span>
             <span>PORT 2: x2 ──► 22</span>
-            <span style={{ color: isWriteBack ? '#4ade80' : '#94a3b8' }}>
-              {isWriteBack ? 'WRITE PORT: 42 COMMITTED' : 'WRITE PORT: STANDBY'}
+            <span style={{ color: isWriteBack ? '#4ade80' : '#94a3b8', fontWeight: isWriteBack ? 700 : 400 }}>
+              {isWriteBack ? 'WRITE PORT: x3 ← 42 COMMITTED' : 'WRITE PORT: STANDBY'}
             </span>
+          </div>
+
+          <div
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '8px',
+              color: '#94a3b8',
+              textAlign: 'center',
+              lineHeight: '1.2'
+            }}
+          >
+            Provides fast operand storage and receives write-back results.
           </div>
         </div>
       </Html>

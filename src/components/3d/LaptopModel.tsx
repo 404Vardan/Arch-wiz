@@ -94,7 +94,7 @@ export const LaptopModel: React.FC<LaptopModelProps> = ({ scrollProgress }) => {
       ctx.fillStyle = '#ff6a00';
       ctx.fillText('> INITIALIZING CPU VISUALIZER...', 50, 135);
       ctx.fillStyle = '#8b949e';
-      ctx.fillText('> REGISTER FILE R0-R31 ALLOCATED', 50, 165);
+      ctx.fillText('> REGISTER FILE x0-x31 ALLOCATED', 50, 165);
       ctx.fillText('> ALU: 32-BIT PARALLEL ADDER LOADED', 50, 195);
       ctx.fillText('> INSTRUCTION FETCH UNIT ONLINE', 50, 225);
       ctx.fillText('> L1/L2 CACHE SUBSYSTEM READY', 50, 255);
@@ -103,18 +103,18 @@ export const LaptopModel: React.FC<LaptopModelProps> = ({ scrollProgress }) => {
       ctx.fillText('> ACTIVE DEMO INSTRUCTION:', 50, 305);
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 16px "JetBrains Mono", monospace';
-      ctx.fillText('  ADD R1, R2', 50, 335);
+      ctx.fillText('  ADD x3, x1, x2', 50, 335);
 
       ctx.font = '12px "JetBrains Mono", monospace';
       ctx.fillStyle = '#8b949e';
       ctx.fillText('  INITIAL STATE:', 50, 370);
       ctx.fillStyle = '#ff6a00';
-      ctx.fillText('  R1 = 20 | R2 = 22 | R3 = 0', 50, 395);
+      ctx.fillText('  x1 = 20 | x2 = 22 | x3 = 0', 50, 395);
       
       ctx.fillStyle = '#8b949e';
       ctx.fillText('  EXPECTED RESULT:', 50, 430);
       ctx.fillStyle = '#ffffff';
-      ctx.fillText('  20 + 22 = 42 → R3', 50, 455);
+      ctx.fillText('  20 + 22 = 42 → x3', 50, 455);
 
       ctx.fillStyle = 'rgba(255, 106, 0, 0.15)';
       ctx.fillRect(45, 490, 350, 70);
@@ -183,7 +183,7 @@ export const LaptopModel: React.FC<LaptopModelProps> = ({ scrollProgress }) => {
       drawBus(620, 160, 670, 160);
       drawBus(820, 160, 850, 160);
 
-      drawBlock(470, 240, 200, 80, 'REGISTER FILE', 'R0-R31 [Dual Read / 1 Write]');
+      drawBlock(470, 240, 200, 80, 'REGISTER FILE', 'x0-x31 [Dual Read / 1 Write]');
       drawBlock(720, 240, 240, 80, 'ARITHMETIC LOGIC UNIT', '32-Bit Parallel Adder / Logic', true);
 
       drawBus(670, 280, 720, 280);

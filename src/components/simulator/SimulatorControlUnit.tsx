@@ -7,13 +7,15 @@ interface SimulatorControlUnitProps {
   lifecycleState: ComponentLifecycleState;
   isActive: boolean;
   controlSignals: RV32IControlSignals;
+  onInspect?: () => void;
 }
 
 export const SimulatorControlUnit: React.FC<SimulatorControlUnitProps> = ({
   position,
   lifecycleState,
   isActive,
-  controlSignals
+  controlSignals,
+  onInspect
 }) => {
   const stateColors: Record<ComponentLifecycleState, string> = {
     IDLE: '#64748b',
@@ -26,10 +28,10 @@ export const SimulatorControlUnit: React.FC<SimulatorControlUnitProps> = ({
   const activeColor = stateColors[lifecycleState] || '#ff6a00';
 
   return (
-    <group position={position}>
+    <group position={position} onClick={onInspect}>
       {/* 3D Silicon Housing */}
       <mesh position={[0, 0, 0]} castShadow receiveShadow>
-        <boxGeometry args={[3.2, 2.2, 0.5]} />
+        <boxGeometry args={[3.2, 2.3, 0.5]} />
         <meshStandardMaterial
           color="#1b1c24"
           metalness={0.7}
@@ -40,38 +42,46 @@ export const SimulatorControlUnit: React.FC<SimulatorControlUnitProps> = ({
       </mesh>
 
       {/* Top Gold Trim */}
-      <mesh position={[0, 1.12, 0]}>
+      <mesh position={[0, 1.17, 0]}>
         <boxGeometry args={[3.0, 0.05, 0.45]} />
         <meshStandardMaterial color="#fbbf24" metalness={0.9} roughness={0.1} />
       </mesh>
 
       {/* Top Input Port (from IR) */}
-      <mesh position={[0, 1.15, 0]}>
+      <mesh position={[0, 1.2, 0]}>
         <cylinderGeometry args={[0.08, 0.08, 0.2, 16]} />
         <meshStandardMaterial color="#ff6a00" emissive="#ff6a00" emissiveIntensity={0.8} />
       </mesh>
 
       {/* Left Output Port (to Register File) */}
-      <mesh position={[-1.65, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+      <mesh position={[-1.65, 0.3, 0]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.08, 0.08, 0.2, 16]} />
         <meshStandardMaterial color="#38bdf8" emissive="#38bdf8" emissiveIntensity={0.8} />
       </mesh>
 
+      {/* Bottom-Left Output Port (ALU Control to ALU) */}
+      <mesh position={[-1.2, -1.18, 0]}>
+        <cylinderGeometry args={[0.08, 0.08, 0.2, 16]} />
+        <meshStandardMaterial color="#ff8533" emissive="#ff8533" emissiveIntensity={0.8} />
+      </mesh>
+
       {/* High-Contrast Technical Label Overlay */}
-      <Html position={[0, 0, 0.28]} center transform distanceFactor={9}>
+      <Html position={[0, 0, 0.28]} center transform distanceFactor={9} zIndexRange={[10, 40]}>
         <div
+          onClick={onInspect}
           style={{
             width: '270px',
-            background: 'rgba(10, 12, 18, 0.94)',
+            background: 'rgba(10, 12, 18, 0.95)',
             border: `1.5px solid ${isActive ? activeColor : 'rgba(255, 255, 255, 0.15)'}`,
             borderRadius: '4px',
             padding: '8px 12px',
             boxShadow: isActive ? `0 0 16px ${activeColor}40` : 'none',
             display: 'flex',
             flexDirection: 'column',
-            gap: '6px',
+            gap: '4px',
             userSelect: 'none',
-            pointerEvents: 'none'
+            cursor: onInspect ? 'pointer' : 'default',
+            pointerEvents: onInspect ? 'auto' : 'none'
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -106,11 +116,11 @@ export const SimulatorControlUnit: React.FC<SimulatorControlUnitProps> = ({
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: '4px',
+              gap: '3px',
               fontFamily: "'JetBrains Mono', monospace",
               fontSize: '9px',
               background: 'rgba(0, 0, 0, 0.5)',
-              padding: '6px',
+              padding: '4px 6px',
               borderRadius: '2px'
             }}
           >
@@ -146,15 +156,27 @@ export const SimulatorControlUnit: React.FC<SimulatorControlUnitProps> = ({
               display: 'flex',
               justifyContent: 'space-between',
               fontFamily: "'JetBrains Mono', monospace",
-              fontSize: '9px',
+              fontSize: '8.5px',
               color: '#38bdf8',
               background: 'rgba(56, 189, 248, 0.1)',
-              padding: '4px 6px',
+              padding: '3px 6px',
               borderRadius: '2px'
             }}
           >
             <span>ALUOp: {controlSignals.aluOp}</span>
             <span>RegWrite: {controlSignals.regWrite ? '1 (ASSERTED)' : '0'}</span>
+          </div>
+
+          <div
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '8px',
+              color: '#94a3b8',
+              textAlign: 'center',
+              lineHeight: '1.2'
+            }}
+          >
+            Decodes the instruction and generates control signals.
           </div>
         </div>
       </Html>

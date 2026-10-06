@@ -9,6 +9,7 @@ interface InstructionPacketProps {
   subLabel?: string;
   progress: number; // 0.0 to 1.0
   visible: boolean;
+  labelOffset?: [number, number, number];
 }
 
 export const InstructionPacket: React.FC<InstructionPacketProps> = ({
@@ -17,7 +18,8 @@ export const InstructionPacket: React.FC<InstructionPacketProps> = ({
   label,
   subLabel,
   progress,
-  visible
+  visible,
+  labelOffset = [0, 0.45, 0.35]
 }) => {
   const curve = useMemo(() => {
     const vectors = points.map((p) => new THREE.Vector3(p[0], p[1], p[2]));
@@ -28,6 +30,16 @@ export const InstructionPacket: React.FC<InstructionPacketProps> = ({
 
   const clampedT = Math.max(0, Math.min(1, progress));
   const currentPos = curve.getPoint(clampedT);
+
+  // Smoothly fade and hide label near start and end of travel to prevent overlapping component housings
+  const edgeFade =
+    clampedT < 0.16
+      ? clampedT / 0.16
+      : clampedT > 0.84
+      ? (1 - clampedT) / 0.16
+      : 1;
+
+  const isLabelVisible = edgeFade > 0.05;
 
   return (
     <group position={[currentPos.x, currentPos.y, currentPos.z]}>
@@ -43,35 +55,46 @@ export const InstructionPacket: React.FC<InstructionPacketProps> = ({
         <meshBasicMaterial color={color} transparent opacity={0.35} toneMapped={false} />
       </mesh>
 
-      {/* Floating High-Contrast Value Label */}
-      <Html position={[0, 0.45, 0]} center transform distanceFactor={8}>
-        <div
-          style={{
-            background: 'rgba(10, 12, 16, 0.95)',
-            border: `1.5px solid ${color}`,
-            borderRadius: '4px',
-            padding: '3px 8px',
-            boxShadow: `0 0 12px ${color}60`,
-            fontFamily: "'JetBrains Mono', monospace",
-            whiteSpace: 'nowrap',
-            userSelect: 'none',
-            pointerEvents: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '1px'
-          }}
+      {/* Floating High-Contrast Value Label with collision-free offset */}
+      {isLabelVisible && (
+        <Html
+          position={labelOffset}
+          center
+          transform
+          distanceFactor={8.5}
+          zIndexRange={[20, 100]}
         >
-          <span style={{ fontSize: '11px', fontWeight: 700, color: '#ffffff' }}>
-            {label}
-          </span>
-          {subLabel && (
-            <span style={{ fontSize: '8px', color: color, fontWeight: 600 }}>
-              {subLabel}
+          <div
+            style={{
+              background: 'rgba(9, 11, 16, 0.96)',
+              border: `1.5px solid ${color}`,
+              borderRadius: '4px',
+              padding: '3px 8px',
+              boxShadow: `0 0 14px ${color}70`,
+              fontFamily: "'JetBrains Mono', monospace",
+              whiteSpace: 'nowrap',
+              userSelect: 'none',
+              pointerEvents: 'none',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '1px',
+              opacity: edgeFade,
+              transition: 'opacity 0.12s ease',
+              backdropFilter: 'blur(8px)'
+            }}
+          >
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#ffffff', letterSpacing: '0.02em' }}>
+              {label}
             </span>
-          )}
-        </div>
-      </Html>
+            {subLabel && (
+              <span style={{ fontSize: '8px', color: color, fontWeight: 600 }}>
+                {subLabel}
+              </span>
+            )}
+          </div>
+        </Html>
+      )}
     </group>
   );
 };
