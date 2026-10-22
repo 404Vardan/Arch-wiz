@@ -1323,6 +1323,75 @@ export const InteractiveSimulatorModal: React.FC<InteractiveSimulatorModalProps>
                   </>
                 )}
               </div>
+
+              {/* View 3: Decoding Explanation */}
+              <div
+                style={{
+                  marginTop: '12px',
+                  background: 'rgba(56, 189, 248, 0.05)',
+                  border: '1px solid rgba(56, 189, 248, 0.2)',
+                  borderRadius: '3px',
+                  padding: '10px 12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '5px'
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: '9px',
+                    fontWeight: 700,
+                    color: '#38bdf8',
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase'
+                  }}
+                >
+                  <span>SYNCHRONIZED DECODING & HARDWARE INTERPRETATION</span>
+                  <span style={{ color: '#8b949e' }}>VIEW 3 / 3</span>
+                </div>
+
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: '8px',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: '10px',
+                    color: '#d0d7de',
+                    marginTop: '2px'
+                  }}
+                >
+                  <div>
+                    <strong style={{ color: '#ef4444' }}>OPCODE [{opcode}]:</strong> Decoded by Control Unit as {currentDef.format}-Type instruction. Asserts ALU main control lines and datapath multiplexers.
+                  </div>
+                  <div>
+                    <strong style={{ color: '#e5a93c' }}>FUNCT3 [{funct3}] & FUNCT7:</strong> Configures ALU arithmetic core operation for <strong style={{ color: '#ff6a00' }}>{selectedInst}</strong>.
+                  </div>
+                  <div>
+                    <strong style={{ color: '#38bdf8' }}>OPERAND PORTS:</strong> Reads rs1 = <strong style={{ color: '#ffffff' }}>{r1Val}</strong>{currentDef.format === 'I' ? ` + Imm = ${r2Val}` : ` & rs2 = ${r2Val}`}.
+                  </div>
+                  <div>
+                    <strong style={{ color: '#4ade80' }}>WRITE TARGET [{currentDef.defaultDest}]:</strong> RegWrite asserted upon cycle completion. Target result = <strong style={{ color: '#4ade80' }}>{computedResult}</strong>.
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: '4px',
+                    borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+                    paddingTop: '4px',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: '9px',
+                    color: '#6e7681'
+                  }}
+                >
+                  * Architecture Scope: Implements pedagogical RV32I integer subset. Registers are modeled as 32-bit registers with R0/x0 hardwired to zero.
+                </div>
+              </div>
             </div>
 
             {/* Stepper & 5-Stage Datapath Walkthrough */}

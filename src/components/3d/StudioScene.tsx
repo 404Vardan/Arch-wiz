@@ -33,50 +33,41 @@ const CinematicCameraController: React.FC<{ scrollProgress: number; activeCompon
     // Read from continuous 60fps lerp store
     const scrollProgress = scrollStore.currentProgress !== undefined ? scrollStore.currentProgress : propScroll;
 
-    // 1. Determine base camera position based on scroll timeline
+    // 1. Determine base camera position based on synchronized scene zone timeline
     if (scrollProgress < 0.12) {
-      // 0–12%: Closed laptop, cinematic 3/4 angle
+      // 0–12% (HERO): Closed laptop, cinematic 3/4 angle
       tempTargetPos.set(4.5, 2.6, 5.2);
       tempLookTarget.set(0, 0, 0);
-    } else if (scrollProgress < 0.25) {
-      // 12–25%: Laptop rotates & lid opens
-      const t = (scrollProgress - 0.12) / (0.25 - 0.12);
+    } else if (scrollProgress < 0.28) {
+      // 12–28%: Laptop rotates forward & lid opens
+      const t = (scrollProgress - 0.12) / (0.28 - 0.12);
       tempTargetPos.set(
         THREE.MathUtils.lerp(4.5, 0.0, t),
         THREE.MathUtils.lerp(2.6, 2.0, t),
         THREE.MathUtils.lerp(5.2, 4.6, t)
       );
       tempLookTarget.set(0, THREE.MathUtils.lerp(0, 0.3, t), 0);
-    } else if (scrollProgress < 0.40) {
-      // 25–40%: Screen activation, camera pushes closer toward display
-      const t = (scrollProgress - 0.25) / (0.40 - 0.25);
+    } else if (scrollProgress < 0.45) {
+      // 28–45%: Screen activation & camera pushes into motherboard / CPU socket reveal
+      const t = (scrollProgress - 0.28) / (0.45 - 0.28);
       tempTargetPos.set(
         THREE.MathUtils.lerp(0.0, 0.0, t),
-        THREE.MathUtils.lerp(2.0, 1.4, t),
-        THREE.MathUtils.lerp(4.6, 3.2, t)
+        THREE.MathUtils.lerp(2.0, 3.4, t),
+        THREE.MathUtils.lerp(4.6, 2.2, t)
       );
-      tempLookTarget.set(0, THREE.MathUtils.lerp(0.3, 0.7, t), THREE.MathUtils.lerp(0, -0.4, t));
-    } else if (scrollProgress < 0.55) {
-      // 40–55%: Camera enters laptop / motherboard & CPU die reveal
-      const t = (scrollProgress - 0.40) / (0.55 - 0.40);
-      tempTargetPos.set(
-        THREE.MathUtils.lerp(0.0, 0.0, t),
-        THREE.MathUtils.lerp(1.4, 3.4, t),
-        THREE.MathUtils.lerp(3.2, 2.2, t)
-      );
-      tempLookTarget.set(0, THREE.MathUtils.lerp(0.7, 0.2, t), THREE.MathUtils.lerp(-0.4, 0.4, t));
-    } else if (scrollProgress < 0.70) {
-      // 55–70%: CPU exploded architecture, elevated 3/4 technical inspection angle
-      const t = (scrollProgress - 0.55) / (0.70 - 0.55);
+      tempLookTarget.set(0, THREE.MathUtils.lerp(0.3, 0.2, t), THREE.MathUtils.lerp(0, 0.4, t));
+    } else if (scrollProgress < 0.65) {
+      // 45–65% (ARCHITECTURE): CPU exploded architecture, elevated 3/4 technical inspection angle
+      const t = (scrollProgress - 0.45) / (0.65 - 0.45);
       tempTargetPos.set(
         THREE.MathUtils.lerp(0.0, 2.6, t),
         THREE.MathUtils.lerp(3.4, 3.8, t),
         THREE.MathUtils.lerp(2.2, 4.4, t)
       );
       tempLookTarget.set(0, THREE.MathUtils.lerp(0.2, 1.1, t), THREE.MathUtils.lerp(0.4, 0.1, t));
-    } else if (scrollProgress < 0.82) {
-      // 70–82%: Instruction execution (ADD R1, R2), camera focuses on datapath / ALU / Registers
-      const t = (scrollProgress - 0.70) / (0.82 - 0.70);
+    } else if (scrollProgress < 0.80) {
+      // 65–80% (EXECUTION): Instruction execution (ADD x3, x1, x2), camera focuses on datapath / ALU / Registers
+      const t = (scrollProgress - 0.65) / (0.80 - 0.65);
       tempTargetPos.set(
         THREE.MathUtils.lerp(2.6, -1.2, t),
         THREE.MathUtils.lerp(3.8, 2.8, t),
@@ -87,9 +78,9 @@ const CinematicCameraController: React.FC<{ scrollProgress: number; activeCompon
         THREE.MathUtils.lerp(1.1, 0.9, t),
         THREE.MathUtils.lerp(0.1, 1.1, t)
       );
-    } else if (scrollProgress < 0.90) {
-      // 82–90%: Cache hierarchy view
-      const t = (scrollProgress - 0.82) / (0.90 - 0.82);
+    } else if (scrollProgress < 0.89) {
+      // 80–89% (CACHE): Cache hierarchy view
+      const t = (scrollProgress - 0.80) / (0.89 - 0.80);
       tempTargetPos.set(
         THREE.MathUtils.lerp(-1.2, 1.0, t),
         THREE.MathUtils.lerp(2.8, 3.6, t),
@@ -100,9 +91,9 @@ const CinematicCameraController: React.FC<{ scrollProgress: number; activeCompon
         THREE.MathUtils.lerp(0.9, 1.8, t),
         THREE.MathUtils.lerp(1.1, -0.6, t)
       );
-    } else if (scrollProgress < 0.96) {
-      // 90–96%: Pipeline section view
-      const t = (scrollProgress - 0.90) / (0.96 - 0.90);
+    } else if (scrollProgress < 0.95) {
+      // 89–95% (PIPELINE): Pipeline section view
+      const t = (scrollProgress - 0.89) / (0.95 - 0.89);
       tempTargetPos.set(
         THREE.MathUtils.lerp(1.0, 0.0, t),
         THREE.MathUtils.lerp(3.6, 4.4, t),
@@ -110,7 +101,7 @@ const CinematicCameraController: React.FC<{ scrollProgress: number; activeCompon
       );
       tempLookTarget.set(0, THREE.MathUtils.lerp(1.8, 2.2, t), THREE.MathUtils.lerp(-0.6, -1.4, t));
     } else {
-      // 96–100%: Final overview pull-back
+      // 95–100% (FINAL): Final overview pull-back
       tempTargetPos.set(2.4, 3.6, 4.8);
       tempLookTarget.set(0, 1.0, 0);
     }

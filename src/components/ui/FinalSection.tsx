@@ -2,12 +2,15 @@ import React from 'react';
 import { ArrowRight, RotateCcw, Cpu } from 'lucide-react';
 import { audio } from '../../utils/audio';
 
+import { isZoneActive } from '../../data/sceneZones';
+
 interface FinalSectionProps {
   scrollProgress: number;
   onExplore: () => void;
   onViewExecution: () => void;
   onResetToTop: () => void;
   onOpenSimulator: () => void;
+  isInspectorOpen?: boolean;
 }
 
 export const FinalSection: React.FC<FinalSectionProps> = ({
@@ -15,9 +18,10 @@ export const FinalSection: React.FC<FinalSectionProps> = ({
   onExplore,
   onViewExecution,
   onResetToTop,
-  onOpenSimulator
+  onOpenSimulator,
+  isInspectorOpen = false
 }) => {
-  const isVisible = scrollProgress >= 0.95;
+  const isVisible = isZoneActive(scrollProgress, 'FINAL') && !isInspectorOpen;
   if (!isVisible) return null;
 
   return (

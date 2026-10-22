@@ -25,24 +25,36 @@ To provide maximum pedagogical clarity without compromising technical rigor, ARC
 
 ## ⚡ Key Features
 
-### 1. Cinematic 3D Hardware Teardown (`0.0 → 1.0` Timeline)
-- **Unibody CNC Aluminum Laptop**: Smoothly pivots open on a mechanical dual-barrel hinge driven by scroll progress.
-- **Dynamic Silicon Display**: Real-time canvas telemetry displaying block schematics and bus activity.
-- **Retractable Keyboard Deck**: Disassembles forward to reveal motherboard traces and the CPU die.
-- **Exploded 3D Silicon Package**: 8 modular blocks (`ALU`, `REGISTER FILE`, `CONTROL UNIT`, `PC`, `IR`, `MEMORY`, `CACHE`, `PIPELINE`) separate vertically in 3D space with interactive inspection drawers.
+### 1. Mutually Exclusive Scene Timeline & 3D Hardware Teardown
+- **Synchronized Camera Timeline**:
+  - `0.00–0.12`: Cinematic Landing Hero
+  - `0.12–0.45`: Laptop opening and internal hardware reveal
+  - `0.45–0.65`: Exploded CPU architecture with focus-based 3D HUD labeling & compact Component Index
+  - `0.65–0.80`: 5-stage instruction execution datapath
+  - `0.80–0.89`: Memory hierarchy & cache access flow
+  - `0.89–0.95`: Pipeline lanes, hazards, and branch predictor
+  - `0.95–1.00`: Final overview & full-screen Simulation Lab entry
+- **Zero-Overlap Educational Layout**: Docked responsive overlay panels with mutually exclusive visibility guards ensuring explanations, controls, and 3D silicon never obstruct each other.
+- **Focus-Based 3D HUD Labels**: Eliminates label clutter by only projecting labels on selected, hovered, or actively highlighted components.
+- **Compact Component Index**: Quick-jump index for all 8 microarchitectural blocks (`PC`, `IR`, `CU`, `REG_FILE`, `ALU`, `MEMORY`, `CACHE`, `PIPELINE`).
 
-### 2. 5-Stage Datapath Instruction Stepper (`ADD R1, R2`)
-- Step or auto-play through micro-operations:
-  - **Fetch (IF)**: $PC$ address latched onto Memory Bus $\to$ Instruction Register ($IR$).
-  - **Decode (ID)**: Control Unit decodes opcode `0x33` (`0110011`) and asserts datapath control lines.
-  - **Register Read (RR)**: Dual-port read of source registers $rs_1=R_1$ ($20$) and $rs_2=R_2$ ($22$).
-  - **Execute (EX)**: 32-bit parallel ALU adder computes result ($42$).
-  - **Write Back (WB)**: Destination register latch updated ($R_3 \leftarrow 42$).
+### 2. 5-Stage Datapath Instruction Stepper (`ADD x3, x1, x2`)
+- **Live SVG Datapath Route**: Highlights the active component path ($PC \to \text{Memory} \to IR \to CU \to \text{Register File} \to ALU \to \text{Register File}$) with animated micro-operation vectors and transferred values.
+- **Strict Educational State**:
+  - **Fetch (IF)**: $PC = \text{0x0040}$ latched onto Memory Bus $\to$ Instruction word returned to Instruction Register ($IR$).
+  - **Decode (ID)**: Control Unit decodes opcode `0110011` (`0x33`), asserts `ALUOp = ADD`, `RegWrite = 1`, and exposes RISC-V fields (`rs1=x1`, `rs2=x2`, `rd=x3`).
+  - **Register Read (RR)**: Dual-port read of source registers $rs_1=x_1$ ($20$) and $rs_2=x_2$ ($22$) independently entering ALU inputs A and B.
+  - **Execute (EX)**: 32-bit parallel ALU adder computes $20 + 22 = 42$; destination register $x_3$ strictly remains $0$ during this stage.
+  - **Write Back (WB)**: Result ($42$) routed across writeback bus to Register File; destination register transitions $x_3: 0 \to 42$.
+- **4-Part Instructional Structure**: Consistent pedagogical layout on every stage: *What is happening*, *Visual flow*, *Current values*, and *Why it matters*.
 
 ### 3. Interactive Architecture Sandbox & 32-Bit Machine Code Encoder
 - **Instruction Support**: `ADD`, `SUB`, `AND`, `OR`, `SLT`, `ADDI`, `SUBI`, `LOAD`, `STORE`, `BEQ`, `BNE`.
-- **Live 32-Bit Bitfield Deconstruction**: Colored breakdown of RISC-V fields (`funct7`, `rs2`, `rs1`, `funct3`, `rd`, `opcode`) and synchronized hexadecimal representation (e.g. `0x011081B3`).
-- **Interactive Operand Inputs**: Customize operand registers, immediate constants, and memory offsets.
+- **Tri-Synchronized Views**:
+  1. Assembly Syntax (`ADD x3, x1, x2`)
+  2. Machine-Code Bitfield Deconstruction (`funct7`, `rs2`, `rs1`, `funct3`, `rd`, `opcode` and hex word)
+  3. Control Hardware Interpretation (decoded signals, ALU function, active register indices)
+- **Pedagogical Scope**: Clearly identifies the implemented educational RV32I subset.
 
 ### 4. Multi-Instruction Program Runner & 16-Register Bank
 - **Curated Educational Presets**:
@@ -58,16 +70,21 @@ To provide maximum pedagogical clarity without compromising technical rigor, ARC
 - **Immediate Syntax Diagnostics**: Real-time syntax and range validation with informative error messages.
 - **Step & Run Modes**: Single-step execution with pointer arrow updates or continuous execution.
 
-### 6. Memory Cache Matrix & Address Deconstruction
-- **32-Bit Address Breakdown**: Segmented into `TAG [31:16]`, `SET INDEX [15:2]`, and `BYTE OFFSET [1:0]`.
-- **Live Cache Line Matrix**: Visualizes sets $S_0$ through $S_3$ with valid bits, tags, and cached data blocks.
+### 6. Memory Cache Subsystem & Access Flow
+- **Memory Access Flowchart**: Interactive SVG visualizes CPU request $\to$ L1 lookup $\to$ Hit return OR Miss $\to$ Main Memory refill $\to$ CPU.
+- **Live 32-Bit Address Breakdown**: Mathematically calculated from selected address:
+  - `TAG [31:4]`: Upper 28 address bits checked against cache directory.
+  - `SET INDEX [3:2]`: 2 bits indexing 1 of 4 sets ($S_0$ through $S_3$).
+  - `BYTE OFFSET [1:0]`: 2 bits selecting the byte within the 4-byte line.
+- **Live Cache Line Matrix**: Visualizes sets with valid bits, tags, and cached data blocks.
 - **Hit vs Miss Simulation**: Interactive **Test Cache Miss** (triggers RAM fetch and line refill) and **Test Cache Hit** (instantaneous SRAM match) with real-time hit-rate tracking.
 
-### 7. Pipeline Hazard Analyzer & Forwarding Bypass
-- **3 Hazard Modes**:
-  - `IDEAL`: 1 instruction per cycle ($\text{CPI} = 1.0$).
-  - `DATA HAZARD (2 STALLS)`: Visualizes Read-After-Write (RAW) data dependency with inserted `NOP` bubbles.
-  - `WITH FORWARDING (BYPASS)`: Visualizes hardware bypass multiplexers routing `EX/MEM.ALUOut` directly to ALU inputs at Cycle 4, eliminating stall cycles.
+### 7. Pipeline Multi-Instruction Lanes & Hazard Forwarding
+- **Clock-Cycle Timing Lanes**: Multi-instruction cycle grid ($I_1, I_2, I_3$ over Cycles 1–8) displaying instruction positions, active stages, stalls, and forwarding bypasses.
+- **3 Comparative Modes**:
+  - `IDEAL`: 1 instruction completed per cycle ($\text{CPI} = 1.0$).
+  - `DATA HAZARD (2 STALLS)`: Visualizes Read-After-Write (RAW) data dependency with inserted `NOP` bubble cycles.
+  - `WITH FORWARDING (BYPASS)`: Visualizes hardware bypass multiplexer routing `EX/MEM.ALUOut` directly to ALU inputs at Cycle 4, eliminating stall cycles.
 
 ### 8. 2-Bit Saturating Branch Predictor (Control Hazards)
 - **4-State Finite State Machine (FSM)**:

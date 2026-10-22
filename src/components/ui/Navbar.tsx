@@ -101,10 +101,10 @@ export const Navbar: React.FC<NavbarProps> = ({
       >
         {[
           { label: 'OVERVIEW', target: 0.05 },
-          { label: 'ARCHITECTURE', target: 0.60 },
-          { label: 'EXECUTION', target: 0.74 },
-          { label: 'CACHE', target: 0.86 },
-          { label: 'PIPELINE', target: 0.94 }
+          { label: 'ARCHITECTURE', target: 0.55 },
+          { label: 'EXECUTION', target: 0.72 },
+          { label: 'CACHE', target: 0.84 },
+          { label: 'PIPELINE', target: 0.92 }
         ].map((item) => (
           <button
             key={item.label}

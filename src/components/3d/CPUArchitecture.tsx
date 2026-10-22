@@ -196,25 +196,29 @@ export const CPUArchitecture: React.FC<CPUArchitectureProps> = ({
               </mesh>
             )}
 
-            {/* Floating Technical 3D HUD Label */}
-            {showLabels && (
+            {/* Focus-Based Technical 3D HUD Label (mutually exclusive / on-demand) */}
+            {showLabels && (isSelected || isHovered || isHighlighted) && (
               <Html
-                position={[0, comp.size[1] / 2 + 0.3, 0]}
+                position={[0, comp.size[1] / 2 + (isSelected ? 0.38 : 0.3), 0]}
                 center
                 distanceFactor={7}
-                style={{ pointerEvents: 'auto' }}
+                style={{ pointerEvents: 'auto', zIndex: isSelected ? 50 : isHovered ? 40 : 30 }}
               >
                 <div
-                  onClick={() => onSelectComponent(comp.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectComponent(comp.id);
+                  }}
                   style={{
                     cursor: 'pointer',
                     whiteSpace: 'nowrap',
                     userSelect: 'none',
-                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                    transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    gap: '2px'
+                    gap: '2px',
+                    transform: isSelected ? 'scale(1.06)' : 'scale(1)'
                   }}
                 >
                   <div
@@ -225,22 +229,26 @@ export const CPUArchitecture: React.FC<CPUArchitectureProps> = ({
                       background: isSelected
                         ? '#ff6a00'
                         : isHighlighted
-                        ? 'rgba(255, 106, 0, 0.9)'
-                        : 'rgba(14, 16, 20, 0.88)',
+                        ? 'rgba(255, 106, 0, 0.92)'
+                        : 'rgba(14, 16, 20, 0.92)',
                       color: isSelected ? '#000000' : '#ffffff',
-                      padding: '4px 10px',
+                      padding: isSelected ? '5px 12px' : '4px 9px',
                       borderRadius: '3px',
                       border: `1px solid ${
                         isSelected
                           ? '#ff6a00'
                           : isHovered
                           ? '#ff6a00'
+                          : isHighlighted
+                          ? '#ff8533'
                           : 'rgba(255, 255, 255, 0.16)'
                       }`,
                       backdropFilter: 'blur(8px)',
                       boxShadow: isSelected
-                        ? '0 4px 20px rgba(255, 106, 0, 0.5)'
-                        : '0 4px 12px rgba(0,0,0,0.5)',
+                        ? '0 6px 20px rgba(255, 106, 0, 0.55)'
+                        : isHighlighted
+                        ? '0 4px 14px rgba(255, 106, 0, 0.4)'
+                        : '0 4px 12px rgba(0,0,0,0.6)',
                       fontFamily: "'Space Grotesk', sans-serif",
                       fontWeight: 600,
                       fontSize: '11px',
@@ -253,24 +261,44 @@ export const CPUArchitecture: React.FC<CPUArchitectureProps> = ({
                         height: '6px',
                         borderRadius: '50%',
                         background: isSelected
-                          ? '#000'
+                          ? '#000000'
                           : isHighlighted
                           ? '#ffffff'
                           : '#ff6a00'
                       }}
                     />
                     {comp.name}
+                    {isSelected && (
+                      <span
+                        style={{
+                          fontSize: '8px',
+                          background: '#000000',
+                          color: '#ff6a00',
+                          padding: '1px 4px',
+                          borderRadius: '2px',
+                          fontWeight: 700,
+                          marginLeft: '2px'
+                        }}
+                      >
+                        SELECTED
+                      </span>
+                    )}
                   </div>
-                  <div
-                    style={{
-                      fontFamily: "'JetBrains Mono', monospace",
-                      fontSize: '9px',
-                      color: isSelected ? '#ff6a00' : 'rgba(255, 255, 255, 0.65)',
-                      textShadow: '0 1px 4px #000'
-                    }}
-                  >
-                    {comp.fullName}
-                  </div>
+                  {(isSelected || isHovered) && (
+                    <div
+                      style={{
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontSize: '9px',
+                        color: isSelected ? '#ff6a00' : 'rgba(255, 255, 255, 0.75)',
+                        textShadow: '0 1px 4px #000000',
+                        background: 'rgba(5, 6, 8, 0.75)',
+                        padding: '1px 6px',
+                        borderRadius: '2px'
+                      }}
+                    >
+                      {comp.fullName}
+                    </div>
+                  )}
                 </div>
               </Html>
             )}

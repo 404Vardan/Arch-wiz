@@ -44,9 +44,12 @@ export const DataFlowParticles: React.FC<DataFlowParticlesProps> = ({
       case 'DECODE':
         return [['IR', 'CU']];
       case 'REGISTER_READ':
-        return [['REG_FILE', 'ALU']];
+        return [
+          ['REG_FILE', 'ALU'],
+          ['REG_FILE', 'ALU']
+        ];
       case 'EXECUTE':
-        return [['ALU', 'CU']];
+        return [['ALU', 'REG_FILE']];
       case 'WRITE_BACK':
         return [['ALU', 'REG_FILE']];
       default:

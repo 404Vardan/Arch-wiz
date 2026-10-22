@@ -11,6 +11,8 @@ export const BenchmarkModal: React.FC<BenchmarkModalProps> = ({ isOpen, onClose 
   const [instructionCount, setInstructionCount] = useState<number>(100000); // 100k instructions
   const [cacheMissRate, setCacheMissRate] = useState<number>(5); // 5%
   const [branchHazardRate, setBranchHazardRate] = useState<number>(10); // 10%
+  const [amdahlFraction, setAmdahlFraction] = useState<number>(70); // 70% of execution enhanced
+  const [amdahlSpeedupFactor, setAmdahlSpeedupFactor] = useState<number>(4); // 4x speedup on enhanced portion
 
   if (!isOpen) return null;
 
@@ -40,9 +42,6 @@ export const BenchmarkModal: React.FC<BenchmarkModalProps> = ({ isOpen, onClose 
   const maxTime = Math.max(singleCycleTotalMs, multiCycleTotalMs, pipelinedTotalMs);
 
   // Amdahl's Law Interactive Model: Speedup = 1 / ((1 - f) + (f / s))
-  const [amdahlFraction, setAmdahlFraction] = useState<number>(70); // 70% of execution enhanced
-  const [amdahlSpeedupFactor, setAmdahlSpeedupFactor] = useState<number>(4); // 4x speedup on enhanced portion
-
   const f = amdahlFraction / 100;
   const s = amdahlSpeedupFactor;
   const amdahlOverallSpeedup = Number((1 / ((1 - f) + (f / s))).toFixed(2));
@@ -370,7 +369,7 @@ export const BenchmarkModal: React.FC<BenchmarkModalProps> = ({ isOpen, onClose 
               borderRadius: '4px'
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               <div>
                 <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#38bdf8', fontWeight: 600 }}>
                   SECTION 2: AMDAHL'S LAW SPEEDUP CALCULATOR
@@ -386,8 +385,88 @@ export const BenchmarkModal: React.FC<BenchmarkModalProps> = ({ isOpen, onClose 
                   {amdahlOverallSpeedup}x
                 </span>
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#6e7681', marginLeft: '8px' }}>
-                  (Max Limit: {amdahlTheoreticalMax}x)
+                  (Theoretical Limit: {amdahlTheoreticalMax}x)
                 </span>
+              </div>
+            </div>
+
+            {/* Visual Stacked Execution Bar Comparison */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#8b949e' }}>
+                <span>EXECUTION TIME FRACTION BREAKDOWN</span>
+                <span>BASELINE (100%) vs ACCELERATED ({((1 - f) * 100 + (f / s) * 100).toFixed(1)}%)</span>
+              </div>
+
+              {/* Baseline Bar */}
+              <div style={{ display: 'flex', height: '14px', borderRadius: '3px', overflow: 'hidden', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                <div
+                  style={{
+                    width: `${amdahlFraction}%`,
+                    background: '#38bdf8',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '8px',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    color: '#000000',
+                    fontWeight: 700
+                  }}
+                  title={`Enhanced Portion: ${amdahlFraction}%`}
+                >
+                  ENHANCED ({amdahlFraction}%)
+                </div>
+                <div
+                  style={{
+                    width: `${100 - amdahlFraction}%`,
+                    background: '#64748b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '8px',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    color: '#ffffff',
+                    fontWeight: 600
+                  }}
+                  title={`Unenhanced Portion: ${100 - amdahlFraction}%`}
+                >
+                  UNENHANCED ({100 - amdahlFraction}%)
+                </div>
+              </div>
+
+              {/* Accelerated Bar */}
+              <div style={{ display: 'flex', height: '14px', borderRadius: '3px', overflow: 'hidden', border: '1px solid rgba(56, 189, 248, 0.4)', background: 'rgba(0,0,0,0.3)' }}>
+                <div
+                  style={{
+                    width: `${(f / s) * 100}%`,
+                    background: '#22c55e',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '8px',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    color: '#000000',
+                    fontWeight: 700
+                  }}
+                  title={`Accelerated time: ${((f / s) * 100).toFixed(1)}%`}
+                >
+                  {((f / s) * 100) > 8 ? `${((f / s) * 100).toFixed(1)}%` : ''}
+                </div>
+                <div
+                  style={{
+                    width: `${(1 - f) * 100}%`,
+                    background: '#64748b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '8px',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    color: '#ffffff',
+                    fontWeight: 600
+                  }}
+                  title={`Unchanged time: ${((1 - f) * 100).toFixed(1)}%`}
+                >
+                  {(1 - f) * 100 > 8 ? `UNENHANCED (${(1 - f) * 100}%)` : ''}
+                </div>
               </div>
             </div>
 
@@ -442,7 +521,20 @@ export const BenchmarkModal: React.FC<BenchmarkModalProps> = ({ isOpen, onClose 
             </div>
 
             <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: '#8b949e', lineHeight: 1.4 }}>
-              <strong>Amdahl's Insight:</strong> Even with infinite accelerator speedup (<span style={{ fontFamily: "'JetBrains Mono', monospace" }}>s → ∞</span>), the overall system speedup is strictly capped by the unenhanced portion at <strong style={{ color: '#ffffff' }}>{amdahlTheoreticalMax}x</strong> (<span style={{ fontFamily: "'JetBrains Mono', monospace" }}>1 / (1 - {f.toFixed(2)})</span>).
+              <strong>Amdahl's Principle:</strong> The overall system speedup is strictly bounded by the proportion of time spent executing the unenhanced task portion: <strong style={{ color: '#ffffff' }}>{amdahlTheoreticalMax}x max</strong> (<span style={{ fontFamily: "'JetBrains Mono', monospace" }}>1 / (1 - {f.toFixed(2)})</span>).
+            </div>
+
+            {/* Explicit Pedagogical Disclaimer */}
+            <div
+              style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '9px',
+                color: '#6e7681',
+                borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+                paddingTop: '6px'
+              }}
+            >
+              * Educational Notice: Theoretical architectural models for Computer Organization & Architecture learning. Values are mathematically computed from user parameters, not physical silicon benchmark measurements.
             </div>
           </div>
         </div>

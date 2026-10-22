@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { StudioScene } from './components/3d/StudioScene';
 import { Navbar } from './components/ui/Navbar';
 import { HeroOverlay } from './components/ui/HeroOverlay';
+import { ComponentIndexOverlay } from './components/ui/ComponentIndexOverlay';
 import { ComponentDetailsModal } from './components/ui/ComponentDetailsModal';
 import { ExecutionSection } from './components/ui/ExecutionSection';
 import { CacheSection } from './components/ui/CacheSection';
@@ -16,6 +17,7 @@ import { EXECUTION_STAGES } from './data/cpuData';
 import { ComponentId, ExecutionStage } from './types';
 import { audio } from './utils/audio';
 import { scrollStore } from './stores/scrollStore';
+import { getActiveSceneZone, isZoneActive } from './data/sceneZones';
 
 export const App: React.FC = () => {
   const [scrollProgress, setScrollProgress] = useState<number>(0);
@@ -31,7 +33,7 @@ export const App: React.FC = () => {
   const [currentStageIndex, setCurrentStageIndex] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
-  // Scroll height multiplier for deep cinematic control
+  // Scroll container ref
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Native scroll handler
@@ -69,7 +71,7 @@ export const App: React.FC = () => {
     const lerpLoop = () => {
       const curr = scrollStore.update();
       const diff = Math.abs(curr - lastReactProgress);
-      if (diff > 0.005 || (curr <= 0.001 && lastReactProgress !== 0) || (curr >= 0.999 && lastReactProgress !== 1)) {
+      if (diff > 0.004 || (curr <= 0.001 && lastReactProgress !== 0) || (curr >= 0.999 && lastReactProgress !== 1)) {
         lastReactProgress = curr;
         setScrollProgress(curr);
       }
@@ -79,10 +81,10 @@ export const App: React.FC = () => {
     return () => cancelAnimationFrame(animFrame);
   }, []);
 
-  // Sync scroll with execution stages if user scrolls through the execution zone (0.68 -> 0.82)
+  // Sync scroll with execution stages if user scrolls through the execution zone (0.65 -> 0.80)
   useEffect(() => {
-    if (!isPlaying && scrollProgress >= 0.68 && scrollProgress <= 0.82) {
-      const execT = (scrollProgress - 0.68) / (0.82 - 0.68);
+    if (!isPlaying && scrollProgress >= 0.65 && scrollProgress <= 0.80) {
+      const execT = (scrollProgress - 0.65) / (0.80 - 0.65);
       const stageIdx = Math.min(
         EXECUTION_STAGES.length - 1,
         Math.max(0, Math.floor(execT * EXECUTION_STAGES.length))
@@ -131,15 +133,19 @@ export const App: React.FC = () => {
   const currentStage: ExecutionStage = EXECUTION_STAGES[currentStageIndex].id;
   const highlightedComponents = EXECUTION_STAGES[currentStageIndex].activeComponents;
 
-  // Hero opacity: 1.0 from 0 to 0.12, fades out to 0.0 by 0.22
-  const heroOpacity = Math.max(0, Math.min(1, 1 - (scrollProgress - 0.08) / (0.20 - 0.08)));
+  // Hero opacity: 1.0 from 0 to 0.06, fades out smoothly to 0.0 by 0.12 (end of HERO zone)
+  const heroOpacity = Math.max(0, Math.min(1, 1 - (scrollProgress - 0.05) / (0.12 - 0.05)));
+
+  // Are any full-screen or high-priority modals open?
+  const isAnyModalOpen = isSimulationLabOpen || isSimulatorOpen || isBenchmarkOpen || isQuizOpen;
+  const isInspectorOpen = !!activeComponentId;
 
   return (
     <div style={{ position: 'relative', width: '100%', minHeight: '100vh' }}>
       {/* 1. Initial Loading Screen */}
       {!isLoaded && <Loader onEnter={() => setIsLoaded(true)} />}
 
-      {/* 2. Sticky Navbar with Audio Controls, Benchmark, Quiz & Simulator trigger */}
+      {/* 2. Sticky Navbar with Audio Controls, Benchmark, Quiz & Simulator triggers */}
       <Navbar
         scrollProgress={scrollProgress}
         onNavigate={scrollToProgress}
@@ -156,7 +162,7 @@ export const App: React.FC = () => {
         onSelectComponent={(id) => setActiveComponentId(id)}
         highlightedComponents={scrollProgress >= 0.65 ? highlightedComponents : []}
         currentStage={scrollProgress >= 0.65 ? currentStage : null}
-        isExecuting={isPlaying || scrollProgress >= 0.68}
+        isExecuting={isPlaying || scrollProgress >= 0.65}
       />
 
       {/* Dedicated Standalone 3D CPU Simulation Lab */}
@@ -165,18 +171,27 @@ export const App: React.FC = () => {
         onClose={() => setIsSimulationLabOpen(false)}
       />
 
-      {/* 4. Section Overlays */}
-      {/* Hero Overlay */}
+      {/* 4. Section Overlays (Strictly Mutually Exclusive & Zero Overlap) */}
+      {/* Hero Overlay (0.00 to 0.12) */}
       <HeroOverlay
         opacity={heroOpacity}
-        onExplore={() => scrollToProgress(0.60)}
-        onViewExecution={() => setIsSimulationLabOpen(true)}
+        onExplore={() => scrollToProgress(0.55)}
+        onViewExecution={() => scrollToProgress(0.72)}
+      />
+
+      {/* Compact Component Index Overlay (0.45 to 0.65 during architecture exploration) */}
+      <ComponentIndexOverlay
+        scrollProgress={scrollProgress}
+        activeComponentId={activeComponentId}
+        onSelectComponent={(id) => setActiveComponentId(id)}
+        isModalOpen={isAnyModalOpen || isInspectorOpen}
       />
 
       {/* Component Details Inspection Drawer / Modal */}
       <ComponentDetailsModal
         componentId={activeComponentId}
         onClose={() => setActiveComponentId(null)}
+        onSelectComponent={(id) => setActiveComponentId(id)}
       />
 
       {/* Interactive Architecture Sandbox / Simulator Modal */}
@@ -197,7 +212,7 @@ export const App: React.FC = () => {
         onClose={() => setIsQuizOpen(false)}
       />
 
-      {/* Instruction Execution Section */}
+      {/* Instruction Execution Section (0.65 to 0.80) */}
       <ExecutionSection
         currentStageIndex={currentStageIndex}
         isPlaying={isPlaying}
@@ -215,29 +230,37 @@ export const App: React.FC = () => {
         }}
         scrollProgress={scrollProgress}
         onOpenSimulationLab={() => setIsSimulationLabOpen(true)}
+        isInspectorOpen={isInspectorOpen}
       />
 
-      {/* Memory Cache Subsystem Section */}
-      <CacheSection scrollProgress={scrollProgress} />
+      {/* Memory Cache Subsystem Section (0.80 to 0.89) */}
+      <CacheSection
+        scrollProgress={scrollProgress}
+        isInspectorOpen={isInspectorOpen}
+      />
 
-      {/* 5-Stage Pipelining Section */}
-      <PipelineSection scrollProgress={scrollProgress} />
+      {/* 5-Stage Pipelining Section (0.89 to 0.95) */}
+      <PipelineSection
+        scrollProgress={scrollProgress}
+        isInspectorOpen={isInspectorOpen}
+      />
 
-      {/* Final Closing Call-to-Action */}
+      {/* Final Closing Call-to-Action (0.95 to 1.00) */}
       <FinalSection
         scrollProgress={scrollProgress}
-        onExplore={() => scrollToProgress(0.60)}
-        onViewExecution={() => scrollToProgress(0.74)}
+        onExplore={() => scrollToProgress(0.55)}
+        onViewExecution={() => scrollToProgress(0.72)}
         onResetToTop={() => scrollToProgress(0)}
         onOpenSimulator={() => setIsSimulatorOpen(true)}
+        isInspectorOpen={isInspectorOpen}
       />
 
-      {/* 5. Virtual Scroll Track (650vh to provide fine-grained physical scroll resolution) */}
+      {/* 5. Virtual Scroll Track (480vh: fine-grained physical scroll resolution without excessive fatigue) */}
       <div
         ref={scrollContainerRef}
         style={{
           width: '100%',
-          height: '650vh',
+          height: '480vh',
           pointerEvents: 'none',
           position: 'relative'
         }}
